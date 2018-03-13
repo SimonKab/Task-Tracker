@@ -1,7 +1,5 @@
 # Task Tracker: спецификация
 
-#### <span style="color:gray"><Описание сути трекера></span>
-
 ### Аналоги
 
 ####  1. TODO списки
