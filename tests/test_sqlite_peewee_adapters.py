@@ -1,9 +1,10 @@
 import unittest
-from tasktracker_server.storage.sqlite_peewee_adapters import TaskStorageAdapter, UserStorageAdapter
+from tasktracker_server.storage.sqlite_peewee_adapters import TaskStorageAdapter, UserStorageAdapter, PlanStorageAdapter
 from tasktracker_server.model.task import Task
 from tasktracker_server.model.user import User
+from tasktracker_server.model.plan import Plan
 import os
-import sqlite3
+import datetime
 
 _TEST_DB = 'test_tasktracker.db'
 
@@ -568,4 +569,63 @@ class TestTaskUser(unittest.TestCase):
             self.storage_task.disconnect()
         if self.storage_user.is_connected():
             self.storage_user.disconnect()
+        os.remove(_TEST_DB)
+
+class TestPlan(unittest.TestCase):
+
+    def setUp(self):
+
+        self.storage_plan = PlanStorageAdapter(_TEST_DB)
+        self.storage_plan.connect()
+
+    def test_save_plan(self):
+        plan = Plan()
+        plan.start = self.datetime_to_milliseconds(datetime.datetime.today())
+        plan.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan.exclude = [3, 5]
+        plan.tid = 5
+
+        success = self.storage_plan.save_plan(plan)
+        self.assertEqual(success, True)
+
+        plans = self.storage_plan.get_plans()
+        print(len(plans))
+        for plan in plans:
+            print(plan.__dict__)
+        relations = self.storage_plan.get_relations()
+        print(len(relations))
+        for relation in relations:
+            print(relation.plan_id, relation.tid, relation.number, relation.kind)
+
+
+    def t_test_get_plans_for_common_tid(self):
+        plan1 = Plan()
+        plan1.start = self.datetime_to_milliseconds(datetime.datetime.today())
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = [3, 5]
+        plan1.tid = 5
+
+        plan2 = Plan()
+        plan2.start = self.datetime_to_milliseconds(datetime.datetime.today() + datetime.timedelta(days=1))
+        plan2.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=4))
+        plan2.exclude = [2, 8]
+        plan2.tid = 6
+
+        self.storage_plan.save_plan(plan1)
+        self.storage_plan.save_plan(plan2)
+
+        plans = self.storage_plan.get_plans(common_tid=5)
+        self.assertEqual(len(plans), 1)
+
+        print(plans[0].__dict__)
+        self.assertEqual(plans[0], plan1)
+
+    def datetime_to_milliseconds(self, datetime_inst):
+        if datetime_inst is None:
+            return None
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        return (datetime_inst - epoch).total_seconds() * 1000.0
+
+    def tearDown(self):
+        self.storage_plan.disconnect()
         os.remove(_TEST_DB)

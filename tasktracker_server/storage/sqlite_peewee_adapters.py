@@ -1,5 +1,6 @@
 from ..model.task import Task
 from ..model.user import User
+from ..model.plan import Plan
 import os
 from itertools import filterfalse
 from peewee import *
@@ -59,6 +60,12 @@ class TaskTableModel(BaseTableModel):
     supposed_end_time = IntegerField(null=True)
     deadline_time = IntegerField(null=True)
     parent_tid = IntegerField(null=True)
+    priority = IntegerField(null=True)
+    status = IntegerField(null=True)
+    notificate_supposed_start = BooleanField()
+    notificate_supposed_end = BooleanField()
+    notificate_deadline = BooleanField()
+    plan_tid = IntegerField(null=True)
 
     def map_task_attr(self, task_field, value):
         if task_field == Task.Field.tid:
@@ -77,6 +84,16 @@ class TaskTableModel(BaseTableModel):
             self.supposed_end_time = value
         if task_field == Task.Field.deadline_time:
             self.deadline_time = value
+        if task_field == Task.Field.priority:
+            self.priority = value
+        if task_field == Task.Field.status:
+            self.status = value
+        if task_field == Task.Field.notificate_supposed_start:
+            self.notificate_supposed_start = value
+        if task_field == Task.Field.notificate_supposed_end:
+            self.notificate_supposed_end = value
+        if task_field == Task.Field.notificate_deadline:
+            self.notificate_deadline = value
 
     def to_task(self):
         task = Task()
@@ -90,10 +107,57 @@ class TaskTableModel(BaseTableModel):
         task.supposed_start_time = self.supposed_start_time
         task.supposed_end_time = self.supposed_end_time
         task.deadline_time = self.deadline_time
+        task.priority = self.priority
+        task.status = self.status
+        task.notificate_supposed_start = self.notificate_supposed_start
+        task.notificate_supposed_end = self.notificate_supposed_end
+        task.notificate_deadline = self.notificate_deadline
         return task
 
     class Meta:
         table_name = 'task'
+
+class PlanTableModel(BaseTableModel):
+    plan_id = AutoField(primary_key=True)
+    start = IntegerField(null=False)
+    end = IntegerField(null=True)
+    shift = IntegerField(null=False)
+
+    def map_plan_attr(self, plan_field, value):
+        if plan_field == Plan.Field.plan_id:
+            self.plan_id = value
+        if plan_field == Plan.Field.start:
+            self.start_time = value
+        if plan_field == Plan.Field.end:
+            self.end_time = value
+        if plan_field == Plan.Field.shift:
+            self.shift = value
+
+    def to_plan(self):
+        plan = Plan()
+        plan.plan_id = self.plan_id
+        plan.start = self.start
+        plan.end = self.end
+        plan.shift = self.shift
+        return plan
+
+    class Meta:
+        table_name = 'plan'
+
+class PlanRelationsTableModel(BaseTableModel):
+    relation_id = AutoField(primary_key=True)
+    plan_id = ForeignKeyField(PlanTableModel, backref='relations')
+    tid = ForeignKeyField(TaskTableModel, null=True, backref='relations')
+    number = IntegerField(null=True)
+    kind = IntegerField(null=True)
+
+    class Kind():
+        COMMON = 0
+        EDITED = 1
+        DELETED = 2
+
+    class Meta:
+        table_name = 'plan_relations'
 
 _DEFAULT_DB_NAME = 'tasktracker.db'
 
@@ -117,7 +181,8 @@ class StorageAdapter():
         return True
 
     def _create_db(self):
-        self.db.create_tables([TaskTableModel, UserTableModel])
+        tables = [TaskTableModel, UserTableModel, PlanTableModel, PlanRelationsTableModel]
+        self.db.create_tables(tables)
 
     def connect(self):
         if not self._is_database_exists():
@@ -166,7 +231,12 @@ class TaskStorageAdapter(StorageAdapter):
                             description=task.description,
                             supposed_start_time=task.supposed_start_time,
                             supposed_end_time=task.supposed_end_time,
-                            deadline_time=task.deadline_time)
+                            deadline_time=task.deadline_time,
+                            priority=task.priority,
+                            status=task.status,
+                            notificate_supposed_start=task.notificate_supposed_start,
+                            notificate_supposed_end=task.notificate_supposed_end,
+                            notificate_deadline=task.notificate_deadline)
         rows_modified = task_to_save.save()
         
         return rows_modified == 1
@@ -177,9 +247,8 @@ class TaskStorageAdapter(StorageAdapter):
         rows_deleted = TaskTableModel.delete().where(TaskTableModel.tid == tid).execute()
         if rows_deleted == 0:
             return False
-        tasks = TaskTableModel.select().where(TaskTableModel.parent_tid == tid)
-        for task in tasks:
-            self.remove_task(task.tid)
+        TaskTableModel.delete().where(TaskTableModel.parent_tid == tid).execute()    
+        PlanTableModel.delete().where(PlanTableModel.tid == tid).execute()
 
         return True
 
@@ -216,8 +285,121 @@ class TaskStorageAdapter(StorageAdapter):
         def description(self, description):
             self._filter.append(TaskTableModel.description == description)
 
+        def priority(self, priority):
+            self._filter.append(TaskTableModel.priority == priority)
+
+        def status(self, status):
+            self._filter.append(TaskTableModel.status == status)
+
+        def notificate_supposed_start(self, notificate_supposed_start):
+            self._filter.append(TaskTableModel.notificate_supposed_start == notificate_supposed_start)
+
+        def notificate_supposed_end(self, notificate_supposed_end):
+            self._filter.append(TaskTableModel.notificate_supposed_end == notificate_supposed_end)
+
+        def notificate_deadline(self, notificate_deadline):
+            self._filter.append(TaskTableModel.notificate_deadline == notificate_deadline)
+
+        def plan_tid(self, plan_tid):
+            self._filter.append(TaskTableModel.plan_tid == plan_tid)
+
+        def filter_range(self, start_time, end_time):
+            self._filter.append(((TaskTableModel.supposed_end_time > start_time)
+                                | (TaskTableModel.supposed_start_time > start_time)
+                                | (TaskTableModel.deadline_time > start_time))
+                                & ((TaskTableModel.supposed_end_time < end_time)
+                                | (TaskTableModel.supposed_start_time < end_time)
+                                | (TaskTableModel.deadline_time < end_time)))
+
         def to_peewee_conditions(self):
             return self._filter
+
+class PlanStorageAdapter(StorageAdapter):
+
+    def __init__(self, db_name=None):
+        super().__init__(db_name)
+
+    def get_plans(self, common_tid=None, time_range=None):
+        self._raise_if_disconnected()
+
+        if common_tid is not None:
+            relations = PlanRelationsTableModel.select().where(PlanRelationsTableModel.tid == common_tid)
+            plans = []
+            for relation in relations:
+                plan = self._get_plan_by_id(relation.plan_id)
+                plans.append(plan)
+            return plans
+
+        plans = [plan_model.to_plan() for plan_model in PlanTableModel.select()]
+        return plans
+
+    def get_relations(self):
+        return PlanRelationsTableModel.select().join(TaskTableModel)       
+    
+    def _get_plan_by_id(self, plan_id):
+        plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
+        plan = plan_models[0].to_plan()
+        relations = PlanRelationsTableModel.select().join(TaskTableModel)
+        for relation in relations:
+            print(relation)
+        print(len(relations))
+        plan.exclude = []
+        for relation in relations:
+            if relation.kind == PlanRelationsTableModel.Kind.COMMON:
+                plan.tid = relation.tid
+            else:
+                plan.exclude.append(relation.number)
+        return plan
+
+    def save_plan(self, plan):
+        self._raise_if_disconnected()
+
+        plan_to_save = PlanTableModel(start=plan.start,
+                                end=plan.end,
+                                shift=plan.shift)
+        rows_modified = plan_to_save.save()
+        if rows_modified != 1:
+            return False
+
+        plan_common_relation = PlanRelationsTableModel(plan_id=plan_to_save.plan_id,
+                                                    tid=plan.tid,
+                                                    number=None,
+                                                    kind=PlanRelationsTableModel.Kind.COMMON)
+        rows_modified = plan_common_relation.save()
+        if rows_modified != 1:
+            return False
+
+        if plan.exclude is not None and len(plan.exclude) != 0:
+            for exclude_number in plan.exclude:
+                plan_deleted_relations = PlanRelationsTableModel(plan_id=plan_to_save.plan_id,
+                                                    tid=None,
+                                                    number=exclude_number,
+                                                    kind=PlanRelationsTableModel.Kind.DELETED)
+                rows_modified = plan_deleted_relations.save()
+                if rows_modified != 1:
+                    return False
+        
+        return True
+
+    def remove_plan(self, plan_id):
+        self._raise_if_disconnected()
+
+        rows_deleted = PlanTableModel.delete().where(PlanTableModel.tid == tid).execute()
+        if rows_deleted == 0:
+            return False
+
+    def edit_plan(self, plan_field_dict):
+        self._raise_if_disconnected()
+
+        plan_id = plan_field_dict[Plan.Field.plan_id]
+        plan_to_edit = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)[0]
+        for field, value in plan_field_dict.items():
+            if field == Plan.Field.plan_id:
+                continue
+            if field == Plan.Field.exclude:
+                value = ':'.join(value)
+            plan_to_edit.map_task_attr(field, value)
+        rows_modified = plan_to_edit.save()
 
 class UserStorageAdapter(StorageAdapter):
 

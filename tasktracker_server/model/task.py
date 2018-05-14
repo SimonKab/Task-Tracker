@@ -22,6 +22,7 @@ class Task():
         self.block_tid_list = None
         self.block_by_tid = None
         self.relation_tid_list = None
+        self.plan_tid = None
 
     class Field():
         tid = 'tid'
@@ -45,6 +46,7 @@ class Task():
         block_tid_list = 'block_tid_list'
         block_by_tid = 'block_by_tid'
         relation_tid_list = 'relation_tid_list'
+        plan_tid = 'plan_tid'
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
@@ -58,8 +60,52 @@ class Status():
     COMPLETED = 2
     OVERDUE = 3
 
+    @staticmethod
+    def to_str(status):
+        if status == Status.PENDING:
+            return "pending"
+        if status == Status.ACTIVE:
+            return "active"
+        if status == Status.COMPLETED:
+            return "completed"
+        if status == Status.OVERDUE:
+            return "overdue"
+
+    @staticmethod
+    def from_str(status):
+        if status == 'pending':
+            return Status.PENDING
+        if status == 'active':
+            return Status.ACTIVE
+        if status == 'completed':
+            return Status.COMPLETED
+        if status == 'overdue':
+            return Status.OVERDUE
+
 class Priority():
     LOW = 0
     NORMAL = 1
     HIGH = 2
     HIGHEST = 3
+
+    @staticmethod
+    def to_str(priority):
+        if priority == Priority.LOW:
+            return "low"
+        if priority == Priority.NORMAL:
+            return "normal"
+        if priority == Priority.HIGH:
+            return "high"
+        if priority == Priority.HIGHEST:
+            return "highest"
+
+    @staticmethod
+    def from_str(priority):
+        if priority == 'low':
+            return Priority.LOW
+        if priority == 'normal':
+            return Priority.NORMAL
+        if priority == 'high':
+            return Priority.HIGH
+        if priority == 'highest':
+            return Priority.HIGHEST
