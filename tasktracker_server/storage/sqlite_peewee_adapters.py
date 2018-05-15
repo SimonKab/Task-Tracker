@@ -364,8 +364,36 @@ class PlanStorageAdapter(StorageAdapter):
             return self.PlanExcludeKind.EDITED
         return None
 
+    def recalculate_exclude_when_start_time_shifted(self, plan_id, start_time_shift):
+        self._raise_if_disconnected()
+
+        plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
+        shift = plan_models[0].shift
+        if start_time_shift % shift == 0:
+            conditions = ((PlanRelationsTableModel.plan_id == plan_id) 
+                & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
+            relations = PlanRelationsTableModel.select().where(conditions)
+            for relation in relations:
+                relation.number -= start_time_shift / shift
+                if relation.number < 0:
+                    relation.delete_instance()
+                else:
+                    rows_modified = relation.save()
+                    if rows_modified != 1:
+                        return False
+        else:
+            conditions = ((PlanRelationsTableModel.plan_id == plan_id) 
+                & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
+            rows_deleted = PlanRelationsTableModel.delete().where(conditions).execute()
+            if rows_deleted < 0:
+                return False
+
+        return True
+
     def _get_plan_by_id(self, plan_id):
         plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
+        if len(plan_models) == 0:
+            return None
         plan = plan_models[0].to_plan()
         relations = PlanRelationsTableModel.select().where(PlanRelationsTableModel.plan_id == plan_id)
         plan.exclude = []
@@ -426,10 +454,9 @@ class PlanStorageAdapter(StorageAdapter):
     def remove_plan(self, plan_id):
         self._raise_if_disconnected()
 
-        rows_deleted = PlanTableModel.delete().where(PlanTableModel.tid == tid).execute()
+        rows_deleted = PlanTableModel.delete().where(PlanTableModel.plan_id == plan_id).execute()
         PlanRelationsTableModel.delete().where(PlanRelationsTableModel.plan_id == plan_id).execute()
-        if rows_deleted == 0:
-            return False
+        return rows_deleted == 1
 
     def edit_plan(self, plan_id, end=None, shift=None):
         self._raise_if_disconnected()

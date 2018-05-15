@@ -386,3 +386,36 @@ class UserController():
             if not success:
                 return False
         return True
+
+class PlanController():
+
+    _plan_storage = PlanStorageAdapter()
+    _task_storage = TaskStorageAdapter()
+
+    @classmethod
+    def attach_plan(cls, tid, shift, end=None):
+        cls._plan_storage.connect()
+        plan = Plan()
+        plan.tid = tid
+        plan.shift = shift
+        plan.end = end
+        success = cls._plan_storage.save_plan(plan)
+        cls._plan_storage.disconnect()
+        return success
+
+    @classmethod
+    def delete_repeats_from_plan_by_number(cls, plan_id, number):
+        cls._plan_storage.connect()
+        success = cls._plan_storage.delete_plan_repeat(plan_id, number)
+        cls._plan_storage.disconnect()
+        return success
+
+    @classmethod
+    def delete_repeats_from_plan_by_time_range(cls, plan_id, time_range):
+        cls._plan_storage.connect()
+        cls._task_storage.connect()
+        plan = cls._storage_adapter.get_plans(plan_id=plan_id)
+        
+        filter = TaskStorageAdapter.Filter()
+        filter.tid(plan.tid)
+        tasks = cls._task_storage.get_tasks(filter)

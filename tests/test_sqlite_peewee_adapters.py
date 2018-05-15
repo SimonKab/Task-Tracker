@@ -785,6 +785,103 @@ class TestPlan(unittest.TestCase):
         plan1.exclude = [0, 10]
         self.assertEqual(plans, plan1)
 
+    def test_remove_plan(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=10))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        success = self.storage_plan.remove_plan(1)
+        self.assertEqual(success, True)
+        
+        plans = self.storage_plan.get_plans(plan_id=1)
+        self.assertEqual(plans, None)
+
+    def test_recalculate_exclude_when_start_time_shifted_forward(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+        task1.supposed_start_time = self.datetime_to_milliseconds(datetime.datetime.today())
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=2))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        new_time = self.datetime_to_milliseconds(datetime.datetime.today() + datetime.timedelta(days=4))
+        self.storage_task.edit_task({Task.Field.tid: 1, Task.Field.supposed_start_time: new_time})
+
+        start_time_shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=4))
+        success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, start_time_shift)
+        self.assertEqual(success, True)
+
+        plan = self.storage_plan.get_plans(plan_id=1)
+        plan1.plan_id = 1
+        plan1.exclude = [1, 2]
+        self.assertEqual(plan, plan1)
+
+    def test_recalculate_exclude_when_start_time_shifted_differ(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+        task1.supposed_start_time = self.datetime_to_milliseconds(datetime.datetime.today())
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=2))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        new_time = self.datetime_to_milliseconds(datetime.datetime.today() + datetime.timedelta(days=1))
+        self.storage_task.edit_task({Task.Field.tid: 1, Task.Field.supposed_start_time: new_time})
+
+        start_time_shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=1))
+        success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, start_time_shift)
+        self.assertEqual(success, True)
+
+        plan = self.storage_plan.get_plans(plan_id=1)
+        plan1.plan_id = 1
+        plan1.exclude = []
+        self.assertEqual(plan, plan1)
+
+    def test_recalculate_exclude_when_start_time_shifted_backward(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+        task1.supposed_start_time = self.datetime_to_milliseconds(datetime.datetime.today())
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=2))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        new_time = self.datetime_to_milliseconds(datetime.datetime.today() - datetime.timedelta(days=4))
+        self.storage_task.edit_task({Task.Field.tid: 1, Task.Field.supposed_start_time: new_time})
+
+        start_time_shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=4))
+        success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, -start_time_shift)
+        self.assertEqual(success, True)
+
+        plan = self.storage_plan.get_plans(plan_id=1)
+        plan1.plan_id = 1
+        plan1.exclude = [2, 3, 5, 6]
+        self.assertEqual(plan, plan1)
+
     def datetime_to_milliseconds(self, datetime_inst):
         if datetime_inst is None:
             return None
