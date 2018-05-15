@@ -3,7 +3,6 @@ class Plan():
     def __init__(self):
         self.plan_id = None
         self.tid = None
-        self.start = None
         self.end = None
         self.shift = None
         self.exclude = None
@@ -11,7 +10,6 @@ class Plan():
     class Field():
         plan_id = 'plan_id'
         tid = 'tid'
-        start = 'start'
         end = 'end'
         shift = 'shift'
         exclude = 'exclude'

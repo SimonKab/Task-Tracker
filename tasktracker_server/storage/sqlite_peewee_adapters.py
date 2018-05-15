@@ -65,7 +65,7 @@ class TaskTableModel(BaseTableModel):
     notificate_supposed_start = BooleanField()
     notificate_supposed_end = BooleanField()
     notificate_deadline = BooleanField()
-    plan_tid = IntegerField(null=True)
+    is_plan = IntegerField(null=True)
 
     def map_task_attr(self, task_field, value):
         if task_field == Task.Field.tid:
@@ -119,15 +119,12 @@ class TaskTableModel(BaseTableModel):
 
 class PlanTableModel(BaseTableModel):
     plan_id = AutoField(primary_key=True)
-    start = IntegerField(null=False)
     end = IntegerField(null=True)
     shift = IntegerField(null=False)
 
     def map_plan_attr(self, plan_field, value):
         if plan_field == Plan.Field.plan_id:
             self.plan_id = value
-        if plan_field == Plan.Field.start:
-            self.start_time = value
         if plan_field == Plan.Field.end:
             self.end_time = value
         if plan_field == Plan.Field.shift:
@@ -136,7 +133,6 @@ class PlanTableModel(BaseTableModel):
     def to_plan(self):
         plan = Plan()
         plan.plan_id = self.plan_id
-        plan.start = self.start
         plan.end = self.end
         plan.shift = self.shift
         return plan
@@ -247,8 +243,9 @@ class TaskStorageAdapter(StorageAdapter):
         rows_deleted = TaskTableModel.delete().where(TaskTableModel.tid == tid).execute()
         if rows_deleted == 0:
             return False
-        TaskTableModel.delete().where(TaskTableModel.parent_tid == tid).execute()    
-        PlanTableModel.delete().where(PlanTableModel.tid == tid).execute()
+        child_tasks = TaskTableModel.select().where(TaskTableModel.parent_tid == tid)
+        for child_task in child_tasks:
+            self.remove_task(child_task.tid)  
 
         return True
 
@@ -316,14 +313,33 @@ class TaskStorageAdapter(StorageAdapter):
 
 class PlanStorageAdapter(StorageAdapter):
 
+    class PlanExcludeKind():
+        EDITED = 1
+        DELETED = 2
+
     def __init__(self, db_name=None):
         super().__init__(db_name)
 
-    def get_plans(self, common_tid=None, time_range=None):
+    def get_plans(self, plan_id=None, common_tid=None, edit_repeat_tid=None):
         self._raise_if_disconnected()
 
+        if plan_id is not None:
+            return self._get_plan_by_id(plan_id)
+
         if common_tid is not None:
-            relations = PlanRelationsTableModel.select().where(PlanRelationsTableModel.tid == common_tid)
+            condition = ((PlanRelationsTableModel.tid == common_tid) 
+                & (PlanRelationsTableModel.kind == PlanRelationsTableModel.Kind.COMMON))
+            relations = PlanRelationsTableModel.select().where(condition)
+            plans = []
+            for relation in relations:
+                plan = self._get_plan_by_id(relation.plan_id)
+                plans.append(plan)
+            return plans
+
+        if edit_repeat_tid is not None:
+            condition = ((PlanRelationsTableModel.tid == edit_repeat_tid) 
+                & (PlanRelationsTableModel.kind == PlanRelationsTableModel.Kind.EDITED))
+            relations = PlanRelationsTableModel.select().where(condition)
             plans = []
             for relation in relations:
                 plan = self._get_plan_by_id(relation.plan_id)
@@ -333,20 +349,29 @@ class PlanStorageAdapter(StorageAdapter):
         plans = [plan_model.to_plan() for plan_model in PlanTableModel.select()]
         return plans
 
-    def get_relations(self):
-        return PlanRelationsTableModel.select().join(TaskTableModel)       
-    
+    def get_exclude_type(self, plan_id, number):
+        self._raise_if_disconnected()
+
+        conditions = ((PlanRelationsTableModel.plan_id == plan_id)
+            & (PlanRelationsTableModel.number == number))
+        relations = PlanRelationsTableModel.select().where(conditions)
+        if len(relations) != 1:
+            return None
+        
+        if relations[0].kind == PlanRelationsTableModel.Kind.DELETED:
+            return self.PlanExcludeKind.DELETED
+        if relations[0].kind == PlanRelationsTableModel.Kind.EDITED:
+            return self.PlanExcludeKind.EDITED
+        return None
+
     def _get_plan_by_id(self, plan_id):
         plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
         plan = plan_models[0].to_plan()
-        relations = PlanRelationsTableModel.select().join(TaskTableModel)
-        for relation in relations:
-            print(relation)
-        print(len(relations))
+        relations = PlanRelationsTableModel.select().where(PlanRelationsTableModel.plan_id == plan_id)
         plan.exclude = []
         for relation in relations:
             if relation.kind == PlanRelationsTableModel.Kind.COMMON:
-                plan.tid = relation.tid
+                plan.tid = relation.tid.tid
             else:
                 plan.exclude.append(relation.number)
         return plan
@@ -354,8 +379,7 @@ class PlanStorageAdapter(StorageAdapter):
     def save_plan(self, plan):
         self._raise_if_disconnected()
 
-        plan_to_save = PlanTableModel(start=plan.start,
-                                end=plan.end,
+        plan_to_save = PlanTableModel(end=plan.end,
                                 shift=plan.shift)
         rows_modified = plan_to_save.save()
         if rows_modified != 1:
@@ -371,35 +395,77 @@ class PlanStorageAdapter(StorageAdapter):
 
         if plan.exclude is not None and len(plan.exclude) != 0:
             for exclude_number in plan.exclude:
-                plan_deleted_relations = PlanRelationsTableModel(plan_id=plan_to_save.plan_id,
-                                                    tid=None,
-                                                    number=exclude_number,
-                                                    kind=PlanRelationsTableModel.Kind.DELETED)
-                rows_modified = plan_deleted_relations.save()
-                if rows_modified != 1:
+                success = self.delete_plan_repeat(plan_to_save.plan_id, exclude_number)
+                if not success:
                     return False
         
         return True
+
+    def delete_plan_repeat(self, plan_id, number):
+        plan_deleted_relations = PlanRelationsTableModel(plan_id=plan_id,
+                                tid=None,
+                                number=number,
+                                kind=PlanRelationsTableModel.Kind.DELETED)
+        rows_modified = plan_deleted_relations.save()
+        return rows_modified == 1
+
+    def edit_plan_repeat(self, plan_id, number, tid):
+        plan_deleted_relations = PlanRelationsTableModel(plan_id=plan_id,
+                                tid=tid,
+                                number=number,
+                                kind=PlanRelationsTableModel.Kind.EDITED)
+        rows_modified = plan_deleted_relations.save()
+        return rows_modified == 1 
+
+    def restore_plan_repeat(self, plan_id, number):
+        conditions = ((PlanRelationsTableModel.plan_id == plan_id)
+            & (PlanRelationsTableModel.number == number))
+        rows_deleted = PlanRelationsTableModel.delete().where(conditions).execute()
+        return rows_deleted != -1
 
     def remove_plan(self, plan_id):
         self._raise_if_disconnected()
 
         rows_deleted = PlanTableModel.delete().where(PlanTableModel.tid == tid).execute()
+        PlanRelationsTableModel.delete().where(PlanRelationsTableModel.plan_id == plan_id).execute()
         if rows_deleted == 0:
             return False
 
-    def edit_plan(self, plan_field_dict):
+    def edit_plan(self, plan_id, end=None, shift=None):
         self._raise_if_disconnected()
 
-        plan_id = plan_field_dict[Plan.Field.plan_id]
-        plan_to_edit = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)[0]
-        for field, value in plan_field_dict.items():
-            if field == Plan.Field.plan_id:
-                continue
-            if field == Plan.Field.exclude:
-                value = ':'.join(value)
-            plan_to_edit.map_task_attr(field, value)
-        rows_modified = plan_to_edit.save()
+        if end is not None:
+            plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
+            for plan_model in plan_models:
+                plan_model.end = end
+                rows_modified = plan_model.save()
+                if rows_modified != 1:
+                    return False
+
+        if shift is not None:
+            plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
+            for plan_model in plan_models:
+                old_shift = plan_model.shift
+                plan_model.shift = shift
+                rows_modified = plan_model.save()
+                if rows_modified != 1:
+                    return False
+            
+            conditions = ((PlanRelationsTableModel.plan_id == plan_id)
+                & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
+            relations = PlanRelationsTableModel.select().where(conditions)
+            for relation in relations:
+                number = relation.number
+                if (number * old_shift) % shift == 0:
+                    relation.number = (number * old_shift) / shift
+                    rows_modified = relation.save()
+                    if rows_modified != 1:
+                        return False
+                else:
+                    relation.delete_instance()
+
+        return True
+
 
 class UserStorageAdapter(StorageAdapter):
 

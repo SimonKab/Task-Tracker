@@ -194,6 +194,7 @@ class TaskController():
         cls._task_storage.disconnect()
         return success
 
+
     @classmethod
     def edit_task(cls, task_id, parent_tid=-1, title=-1, description=-1,
                     supposed_start_time=-1, supposed_end_time=-1, deadline_time=-1,

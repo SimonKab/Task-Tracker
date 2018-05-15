@@ -165,10 +165,8 @@ class TestTask(unittest.TestCase):
         test_task.deadline_time = 2442324
         test_task.notificate_deadline = True
 
-        success = self.storage.save_task(test_task)
-        self.assertEqual(success, True)
-        success = self.storage.save_task(test_task)
-        self.assertEqual(success, True)
+        self.storage.save_task(test_task)
+        self.storage.save_task(test_task)
 
         tasks_in_db = self.storage.get_tasks()
 
@@ -339,6 +337,8 @@ class TestTaskParentTid(unittest.TestCase):
         self.assertEqual(success, True)
 
         tasks_in_db = self.storage.get_tasks()
+        for task in tasks_in_db:
+            print(task.__dict__)
         self.assertEqual(len(tasks_in_db), 0)
 
     def tearDown(self):
@@ -574,58 +574,224 @@ class TestTaskUser(unittest.TestCase):
 class TestPlan(unittest.TestCase):
 
     def setUp(self):
-
         self.storage_plan = PlanStorageAdapter(_TEST_DB)
         self.storage_plan.connect()
+        self.storage_task = TaskStorageAdapter(_TEST_DB)
+        self.storage_task.connect()
 
     def test_save_plan(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        task2 = Task()
+        task2.title = 'Title 2'
+
+        self.storage_task.save_task(task1)
+        self.storage_task.save_task(task2)
+
         plan = Plan()
-        plan.start = self.datetime_to_milliseconds(datetime.datetime.today())
         plan.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
         plan.exclude = [3, 5]
-        plan.tid = 5
+        plan.tid = 2
 
         success = self.storage_plan.save_plan(plan)
         self.assertEqual(success, True)
 
-        plans = self.storage_plan.get_plans()
-        print(len(plans))
-        for plan in plans:
-            print(plan.__dict__)
-        relations = self.storage_plan.get_relations()
-        print(len(relations))
-        for relation in relations:
-            print(relation.plan_id, relation.tid, relation.number, relation.kind)
+    def test_get_plans_for_common_tid(self):
+        task1 = Task()
+        task1.title = 'Title 1'
 
+        task2 = Task()
+        task2.title = 'Title 2'
 
-    def t_test_get_plans_for_common_tid(self):
+        self.storage_task.save_task(task1)
+        self.storage_task.save_task(task2)
+
         plan1 = Plan()
-        plan1.start = self.datetime_to_milliseconds(datetime.datetime.today())
         plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
         plan1.exclude = [3, 5]
-        plan1.tid = 5
+        plan1.tid = 2
 
         plan2 = Plan()
-        plan2.start = self.datetime_to_milliseconds(datetime.datetime.today() + datetime.timedelta(days=1))
         plan2.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=4))
         plan2.exclude = [2, 8]
-        plan2.tid = 6
+        plan2.tid = 1
 
         self.storage_plan.save_plan(plan1)
         self.storage_plan.save_plan(plan2)
 
-        plans = self.storage_plan.get_plans(common_tid=5)
+        plans = self.storage_plan.get_plans(common_tid=1)
         self.assertEqual(len(plans), 1)
 
-        print(plans[0].__dict__)
-        self.assertEqual(plans[0], plan1)
+        plan2.plan_id = 2
+
+        self.assertEqual(plans[0], plan2)
+
+    def test_plans_delete_repeat(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = [3, 5]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        self.storage_plan.delete_plan_repeat(1, 8)
+
+        plan_in_database = self.storage_plan.get_plans(plan_id=1)
+
+        plan1.plan_id = 1
+        plan1.exclude.append(8)
+
+        self.assertEqual(plan_in_database, plan1)
+
+    def test_plans_restore_repeat(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = [3, 5]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        self.storage_plan.delete_plan_repeat(1, 8)
+        success = self.storage_plan.restore_plan_repeat(1, 8)
+        self.assertEqual(success, True)
+        
+        plan_in_database = self.storage_plan.get_plans(plan_id=1)
+
+        plan1.plan_id = 1
+        self.assertEqual(plan_in_database, plan1)
+
+    def test_plans_edit_repeat(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = []
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        task2 = Task()
+        task2.title = 'Title 2'
+
+        self.storage_task.save_task(task2)
+
+        success = self.storage_plan.edit_plan_repeat(1, 8, 2)
+        self.assertEqual(success, True)
+
+        plan_in_db = self.storage_plan.get_plans(1)
+
+        plan1.plan_id = 1
+        plan1.exclude.append(8)
+        self.assertEqual(plan_in_db, plan1)
+
+    def test_exclude_delete_type(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = []
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        self.storage_plan.delete_plan_repeat(1, 8)
+        exclude_type = self.storage_plan.get_exclude_type(1, 8)
+        self.assertEqual(exclude_type, PlanStorageAdapter.PlanExcludeKind.DELETED)
+
+    def test_exclude_edit_type(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        task2 = Task()
+        task2.title = 'Title 2'
+
+        self.storage_task.save_task(task2)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = []
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        self.storage_plan.edit_plan_repeat(1, 8, 2)
+        exclude_type = self.storage_plan.get_exclude_type(1, 8)
+        self.assertEqual(exclude_type, PlanStorageAdapter.PlanExcludeKind.EDITED)
+
+    def test_make_shift_bigger(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        plan1.exclude = [0, 1, 2, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        new_shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=6))
+        success = self.storage_plan.edit_plan(1, shift=new_shift)
+        self.assertEqual(success, True)
+
+        plans = self.storage_plan.get_plans(plan_id=1)
+
+        plan1.plan_id = 1
+        plan1.shift = new_shift
+        plan1.exclude = [0, 1, 2]
+        self.assertEqual(plans, plan1)
+
+    def test_make_shift_smaller(self):
+        task1 = Task()
+        task1.title = 'Title 1'
+
+        self.storage_task.save_task(task1)
+
+        plan1 = Plan()
+        plan1.shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=10))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        new_shift = self.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
+        success = self.storage_plan.edit_plan(1, shift=new_shift)
+        self.assertEqual(success, True)
+
+        plans = self.storage_plan.get_plans(plan_id=1)
+
+        plan1.plan_id = 1
+        plan1.shift = new_shift
+        plan1.exclude = [0, 10]
+        self.assertEqual(plans, plan1)
 
     def datetime_to_milliseconds(self, datetime_inst):
         if datetime_inst is None:
             return None
         epoch = datetime.datetime.utcfromtimestamp(0)
-        return (datetime_inst - epoch).total_seconds() * 1000.0
+        return int((datetime_inst - epoch).total_seconds() * 1000.0)
 
     def tearDown(self):
         self.storage_plan.disconnect()
+        self.storage_task.disconnect()
         os.remove(_TEST_DB)
