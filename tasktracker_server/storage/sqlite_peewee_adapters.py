@@ -196,7 +196,7 @@ class StorageAdapter():
 
     def _raise_if_disconnected(self):
         if not self.is_connected():
-            raise ValueError("There is not a connection")
+            raise ValueError("Connection is not established")
 
 class TaskStorageAdapter(StorageAdapter):
 

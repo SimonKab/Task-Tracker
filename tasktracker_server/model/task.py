@@ -24,6 +24,54 @@ class Task():
         self.relation_tid_list = None
         self.plan_tid = None
 
+    def shift_time(self, shift):
+        if self.supposed_start_time is not None:
+            self.supposed_start_time += shift
+        if self.supposed_end_time is not None:
+            self.supposed_end_time += shift
+        if self.deadline_time is not None:
+            self.deadline_time += shift
+
+    def is_time_overlap(self, time_range):
+        return (not self.is_after_time(time_range) 
+            and not self.is_before_time(time_range))
+
+    def is_after_time(self, time_range):
+        start_time = time_range[0]
+        if len(time_range) == 1:
+            end_time = start_time
+        else:
+            end_time = time_range[1]
+
+        after_start = self._compare_time(start_time, 
+            lambda to_compare, with_compare: to_compare > with_compare)
+        after_end = self._compare_time(end_time, 
+            lambda to_compare, with_compare: to_compare > with_compare)
+        return after_start and after_end
+
+    def is_before_time(self, time_range):
+        start_time = time_range[0]
+        if len(time_range) == 1:
+            end_time = start_time
+        else:
+            end_time = time_range[1]
+
+        before_start = self._compare_time(start_time, 
+            lambda to_compare, with_compare: to_compare < with_compare)
+        before_end = self._compare_time(end_time, 
+            lambda to_compare, with_compare: to_compare < with_compare)
+        return before_start and before_end
+
+    def _compare_time(self, time, comparator):
+        def compare(to_compare, with_compare, comparator):
+            if to_compare is not None:
+                return comparator(to_compare, with_compare)
+            else:
+                return True
+        return (compare(self.supposed_start_time, time, comparator)
+            and compare(self.supposed_end_time, time, comparator)
+            and compare(self.deadline_time, time, comparator))
+
     class Field():
         tid = 'tid'
         uid = 'uid'

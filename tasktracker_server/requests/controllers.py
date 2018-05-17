@@ -2,7 +2,6 @@ from tasktracker_server.model.task import Task, Status, Priority
 from tasktracker_server.model.user import User
 from tasktracker_server.model.plan import Plan
 from tasktracker_server.storage.sqlite_peewee_adapters import TaskStorageAdapter, UserStorageAdapter, PlanStorageAdapter
-from tasktracker_server import console_response
 
 class InvalidTimeError(Exception):
 
@@ -393,6 +392,14 @@ class PlanController():
     _task_storage = TaskStorageAdapter()
 
     @classmethod
+    def init_storage_adapters(cls, plan_storage_adapter=None,
+                              task_storage_adapter=None):
+        if plan_storage_adapter is not None:
+            cls._plan_storage = plan_storage_adapter()
+        if task_storage_adapter is not None:
+            cls._task_storage = task_storage_adapter()
+
+    @classmethod
     def attach_plan(cls, tid, shift, end=None):
         cls._plan_storage.connect()
         plan = Plan()
@@ -402,6 +409,20 @@ class PlanController():
         success = cls._plan_storage.save_plan(plan)
         cls._plan_storage.disconnect()
         return success
+
+    @classmethod
+    def get_plan_for_common_task(cls, common_tid):
+        cls._plan_storage.connect()
+        plans = cls._plan_storage.get_plans(common_tid=common_tid)
+        cls._plan_storage.disconnect()
+        return plans
+
+    @classmethod
+    def get_plan_for_edit_repeat_task(cls, edit_repeat_tid):
+        cls._plan_storage.connect()
+        plans = cls._plan_storage.get_plans(edit_repeat_tid=edit_repeat_tid)
+        cls._plan_storage.disconnect()
+        return plans
 
     @classmethod
     def delete_repeats_from_plan_by_number(cls, plan_id, number):
@@ -414,8 +435,25 @@ class PlanController():
     def delete_repeats_from_plan_by_time_range(cls, plan_id, time_range):
         cls._plan_storage.connect()
         cls._task_storage.connect()
-        plan = cls._storage_adapter.get_plans(plan_id=plan_id)
-        
+        plan = cls._plan_storage.get_plans(plan_id=plan_id)
+        if plan is None:
+            return False
+
         filter = TaskStorageAdapter.Filter()
         filter.tid(plan.tid)
-        tasks = cls._task_storage.get_tasks(filter)
+        task = cls._task_storage.get_tasks(filter)
+
+        is_before = task.is_before_time(time_range)
+        if not is_before:
+            number = 0
+            while not task.is_time_overlap(time_range):
+                number += 1
+                task.shift(plan.shift)
+            while task.is_time_overlap(time_range):
+                success = cls._plan_storage.delete_plan_repeat(plan.plan_id, number)
+                if not success:
+                    return False
+                task.shift(plan.shift)
+                number += 1
+
+        return True
