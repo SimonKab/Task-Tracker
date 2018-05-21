@@ -24,6 +24,21 @@ class Task():
         self.relation_tid_list = None
         self.plan_tid = None
 
+    def get_time_interval(self):
+        left_border = None
+        right_border = None
+        if notificate_supposed_end is not None:
+            right_border = notificate_supposed_end
+        if notificate_deadline is not None:
+            right_border = notificate_deadline
+        if notificate_supposed_start is not None:
+            left_border = notificate_supposed_start
+        
+        if left_border is None or right_border is None:
+            return 0
+        else:
+            return right_border - left_border
+
     def shift_time(self, shift):
         if self.supposed_start_time is not None:
             self.supposed_start_time += shift
@@ -35,6 +50,13 @@ class Task():
     def is_time_overlap(self, time_range):
         return (not self.is_after_time(time_range) 
             and not self.is_before_time(time_range))
+
+    def is_time_overlap_fully(self, time_range):
+        if len(time_range) == 1:
+            return False
+
+        return (not self.is_after_time((time_range[0], ))
+            and not self.is_before_time((time_range[1], )))
 
     def is_after_time(self, time_range):
         start_time = time_range[0]

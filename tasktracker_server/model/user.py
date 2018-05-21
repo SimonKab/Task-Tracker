@@ -1,7 +1,7 @@
 class User():
 
     def __init__(self):
-        self.uid = 0
+        self.uid = None
         self.login = None
         self.password = None
         self.online = False
@@ -17,3 +17,10 @@ class User():
             return False
 
         return self.__dict__ == other.__dict__
+
+class SuperUser(User):
+
+    def __init__(self):
+        super().__init__()
+        self.login = 'SuperUser'
+        self.online = True

@@ -78,3 +78,14 @@ class TestTask(unittest.TestCase):
 
         is_overlap = task.is_time_overlap(time_range)
         self.assertEqual(is_overlap, True)
+
+    def test_is_time_overlap_fully(self):
+        task = Task()
+        task.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
+        task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=6))
+
+        time_range = (utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=0)),
+                      utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=6)))
+
+        is_overlap = task.is_time_overlap_fully(time_range)
+        self.assertEqual(is_overlap, True)

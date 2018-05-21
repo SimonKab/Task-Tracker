@@ -1,5 +1,5 @@
 from .model.task import Task, Priority, Status
-from .requests.controllers import TaskController
+from .requests.controllers import TaskController, PlanController
 import datetime
 
 def show_tasks_in_console(tasks, shift=0):
@@ -13,8 +13,46 @@ def show_tasks_in_console(tasks, shift=0):
             task.notificate_supposed_end,
             task.notificate_deadline] for task in tasks]
     data.insert(0, ['TID', 'PARENT', 'TITLE', 'DESCRIPTION', 'SUPPOSED_START', 'SUPPOSED_END', 'DEADLINE',
-                    'PRIORITY', 'STATUS', 'NOTIFICATE START', 'NOTIFICATE END', 'NOTIFICATE DEADLINE'])
+                    'PRIORITY', 'STATUS', 'NOTIFICATE START', 'NOTIFICATE END', 'NOTIFICATE DEADLINE', 
+                    'PLANNED (plan id)', 'EDIT PLANS (plan id)', 'NUMBER IN PLANS'])
+    
+    plan_controller = PlanController()
+    for i in range(len(tasks)):
+        task = tasks[i]
+        plans = plan_controller.get_plan_for_common_task(task.tid)
+        if len(plans) > 0:
+            plans_ids = ','.join([str(plan.plan_id) for plan in plans])
+            data[i+1].append(plans_ids)
+        else:
+            data[i+1].append(str(None))
+        edited_plans = plan_controller.get_plan_for_edit_repeat_task(task.tid)
+        if len(edited_plans) > 0:
+            plans_ids = ','.join([str(plan.plan_id) for plan in edited_plans])
+            data[i+1].append(plans_ids)
+        else:
+            data[i+1].append(str(None))
+
+        all_plans = plans + edited_plans
+        if len(all_plans) > 0:
+            repeats = []
+            for plan in all_plans:
+                repeat = plan_controller.get_repeat_number_for_task(plan.plan_id, task)
+                if repeat is not None:
+                    repeats.append(str(repeat))
+            numbers = ','.join(repeats)
+            data[i+1].append(numbers)
+        else:
+            data[i+1].append(str(None))
+        
     print_in_groups(data, shift)
+
+def show_plan_in_console(plans):
+    data = [[str(plan.plan_id), str(plan.tid), 
+            shift_to_display(plan.shift),
+            timestamp_to_display(plan.end),
+            ','.join(map(str, plan.exclude))] for plan in plans]
+    data.insert(0, ['PLAN ID', 'TID', 'SHIFT', 'END', 'EXCLUDE_NUMBERS'])
+    print_in_groups(data, 0)
 
 def show_full_tasks_in_console(tasks):
     plans = TaskController.fetch_plans(1)
@@ -95,6 +133,10 @@ def show_invalid_parent_id_error(parent_tid):
 def timestamp_to_display(timestamp):
     if timestamp is not None:
         return datetime.datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%d-%m-%Y')
+
+def shift_to_display(shift):
+    if shift is not None:
+        return str(datetime.timedelta(milliseconds=shift))
 
 def print_in_grid(data, shift=0):
     max_width = []

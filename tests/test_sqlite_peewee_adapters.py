@@ -9,52 +9,6 @@ import datetime
 
 _TEST_DB = 'test_tasktracker.db'
 
-class TestCommon(unittest.TestCase):
-
-    def setUp(self):
-        self.storage = TaskStorageAdapter(_TEST_DB)
-
-    def test_connect_disconnect(self):
-        self.storage.connect()
-        self.storage.disconnect()
-
-    def test_disconnect_when_not_connect(self):
-        self.storage.disconnect()
-
-    def test_is_single_connected(self):
-        self.storage.connect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.disconnect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, False)
-
-    def test_is_multi_connected(self):
-        self.storage.connect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.connect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.connect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.disconnect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.disconnect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, True)
-
-        self.storage.disconnect()
-        is_connected = self.storage.is_connected()
-        self.assertEqual(is_connected, False)
-
 class TestTask(unittest.TestCase):
 
     def setUp(self):
@@ -278,11 +232,13 @@ class TestTaskParentTid(unittest.TestCase):
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
+        test_task_2.parent_tid = 1
 
         test_task_3 = Task()
         test_task_3.title = 'vfdmk'
         test_task_3.description = 'vvkjndk232332'
         test_task_3.deadline_time = 23233
+        test_task_3.parent_tid = 1
 
         test_task_4 = Task()
         test_task_4.title = 'vfdmk'
@@ -290,8 +246,6 @@ class TestTaskParentTid(unittest.TestCase):
         test_task_4.deadline_time = 23233
 
         self.storage.save_task(test_task_1)
-        test_task_2.parent_tid = 1
-        test_task_3.parent_tid = 1
         self.storage.save_task(test_task_2)
         self.storage.save_task(test_task_3)
         self.storage.save_task(test_task_4)
@@ -338,8 +292,6 @@ class TestTaskParentTid(unittest.TestCase):
         self.assertEqual(success, True)
 
         tasks_in_db = self.storage.get_tasks()
-        for task in tasks_in_db:
-            print(task.__dict__)
         self.assertEqual(len(tasks_in_db), 0)
 
     def tearDown(self):
@@ -643,7 +595,7 @@ class TestPlan(unittest.TestCase):
 
         self.storage_plan.delete_plan_repeat(1, 8)
 
-        plan_in_database = self.storage_plan.get_plans(plan_id=1)
+        plan_in_database = self.storage_plan.get_plans(plan_id=1)[0]
 
         plan1.plan_id = 1
         plan1.exclude.append(8)
@@ -667,7 +619,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.restore_plan_repeat(1, 8)
         self.assertEqual(success, True)
         
-        plan_in_database = self.storage_plan.get_plans(plan_id=1)
+        plan_in_database = self.storage_plan.get_plans(plan_id=1)[0]
 
         plan1.plan_id = 1
         self.assertEqual(plan_in_database, plan1)
@@ -693,7 +645,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.edit_plan_repeat(1, 8, 2)
         self.assertEqual(success, True)
 
-        plan_in_db = self.storage_plan.get_plans(1)
+        plan_in_db = self.storage_plan.get_plans(1)[0]
 
         plan1.plan_id = 1
         plan1.exclude.append(8)
@@ -714,7 +666,7 @@ class TestPlan(unittest.TestCase):
 
         self.storage_plan.delete_plan_repeat(1, 8)
         exclude_type = self.storage_plan.get_exclude_type(1, 8)
-        self.assertEqual(exclude_type, PlanStorageAdapter.PlanExcludeKind.DELETED)
+        self.assertEqual(exclude_type, Plan.PlanExcludeKind.DELETED)
 
     def test_exclude_edit_type(self):
         task1 = Task()
@@ -736,7 +688,7 @@ class TestPlan(unittest.TestCase):
 
         self.storage_plan.edit_plan_repeat(1, 8, 2)
         exclude_type = self.storage_plan.get_exclude_type(1, 8)
-        self.assertEqual(exclude_type, PlanStorageAdapter.PlanExcludeKind.EDITED)
+        self.assertEqual(exclude_type, Plan.PlanExcludeKind.EDITED)
 
     def test_make_shift_bigger(self):
         task1 = Task()
@@ -755,7 +707,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.edit_plan(1, shift=new_shift)
         self.assertEqual(success, True)
 
-        plans = self.storage_plan.get_plans(plan_id=1)
+        plans = self.storage_plan.get_plans(plan_id=1)[0]
 
         plan1.plan_id = 1
         plan1.shift = new_shift
@@ -779,7 +731,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.edit_plan(1, shift=new_shift)
         self.assertEqual(success, True)
 
-        plans = self.storage_plan.get_plans(plan_id=1)
+        plans = self.storage_plan.get_plans(plan_id=1)[0]
 
         plan1.plan_id = 1
         plan1.shift = new_shift
@@ -803,7 +755,7 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(success, True)
         
         plans = self.storage_plan.get_plans(plan_id=1)
-        self.assertEqual(plans, None)
+        self.assertEqual(plans, [])
 
     def test_recalculate_exclude_when_start_time_shifted_forward(self):
         task1 = Task()
@@ -826,7 +778,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, start_time_shift)
         self.assertEqual(success, True)
 
-        plan = self.storage_plan.get_plans(plan_id=1)
+        plan = self.storage_plan.get_plans(plan_id=1)[0]
         plan1.plan_id = 1
         plan1.exclude = [1, 2]
         self.assertEqual(plan, plan1)
@@ -852,7 +804,7 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, start_time_shift)
         self.assertEqual(success, True)
 
-        plan = self.storage_plan.get_plans(plan_id=1)
+        plan = self.storage_plan.get_plans(plan_id=1)[0]
         plan1.plan_id = 1
         plan1.exclude = []
         self.assertEqual(plan, plan1)
@@ -878,10 +830,42 @@ class TestPlan(unittest.TestCase):
         success = self.storage_plan.recalculate_exclude_when_start_time_shifted(1, -start_time_shift)
         self.assertEqual(success, True)
 
-        plan = self.storage_plan.get_plans(plan_id=1)
+        plan = self.storage_plan.get_plans(plan_id=1)[0]
         plan1.plan_id = 1
         plan1.exclude = [2, 3, 5, 6]
         self.assertEqual(plan, plan1)
+
+    def test_remove_task_when_its_common_for_plan(self):
+
+        task1 = Task()
+        task1.title = 'Title 1'
+        task1.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
+
+        task2 = Task()
+        task2.title = 'Title 2'
+        task2.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
+
+        self.storage_task.save_task(task1)
+        self.storage_task.save_task(task2)
+
+        plan1 = Plan()
+        plan1.shift = utils.create_shift_in_millis(datetime.timedelta(days=2))
+        plan1.exclude = [0, 1, 3, 4]
+        plan1.tid = 1
+
+        self.storage_plan.save_plan(plan1)
+
+        success = self.storage_task.remove_task(1)
+        self.assertEqual(success, True)
+
+        tasks = self.storage_task.get_tasks()
+        self.assertEqual(len(tasks), 1)
+
+        task2.tid = 2
+        self.assertEqual(tasks[0], task2)
+
+        plans = self.storage_plan.get_plans()
+        self.assertEqual(len(plans), 0)
 
     def tearDown(self):
         self.storage_plan.disconnect()

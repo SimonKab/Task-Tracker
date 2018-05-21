@@ -14,6 +14,9 @@ class Plan():
         shift = 'shift'
         exclude = 'exclude'
 
+    class PlanExcludeKind():
+        EDITED = 1
+        DELETED = 2
     
     def __eq__(self, other):
         if self.__class__ != other.__class__:

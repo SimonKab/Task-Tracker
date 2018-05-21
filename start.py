@@ -1,4 +1,3 @@
-import sys
 import tasktracker_server.console_parser as parser
 
 def run():

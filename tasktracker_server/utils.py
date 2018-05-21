@@ -14,3 +14,8 @@ def create_shift_in_millis(delta):
 
 def shift_datetime_in_millis(datetime, delta):
     return datetime_to_milliseconds(datetime + delta)
+
+def get_time_range_of_day(datetime_inst):
+    start_day = datetime.datetime(datetime_inst.year, datetime_inst.month, datetime_inst.day)
+    end_day = start_day + datetime.timedelta(days=1)
+    return (start_day, end_day)

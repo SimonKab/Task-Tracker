@@ -1,10 +1,12 @@
 from . import console_response
-from .requests.controllers import TaskController, UserController
+from .requests.controllers import TaskController, UserController, PlanController
 from .requests.controllers import InvalidTimeError, InvalidParentId
 from .requests.controllers import UserAlreadyExistsError, UserNotExistsError
+from . import utils
 import argparse
 import datetime
 import re
+
 
 class Parser:
     PREFIX = '--'
@@ -41,6 +43,7 @@ class Parser:
     PLAN_END = 'end'
     PLAN_SHIFT = 'shift'
     PLAN_EXCLUDE = 'exclude'
+    PLAN_REPEATS = 'repeats'
 
     OVERALL_TASK = 'overall_task'
 
@@ -64,14 +67,15 @@ class Parser:
                 if str(attr).isupper():
                     value = getattr(Parser, attr)
                     setattr(Parser._with_prefix, attr, Parser.PREFIX + value)
-            
+
         return Parser._with_prefix
 
+
 def parse():
-    parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX, 
-        description="Hello) It's task tracker")
+    parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX,
+                                     description="Hello) It's task tracker")
     root_subparsers = parser.add_subparsers(dest=Parser.ACTION)
-    
+
     init_task_parser(root_subparsers)
     init_overall_task_parser(root_subparsers)
     init_user_parser(root_subparsers)
@@ -82,6 +86,7 @@ def parse():
     check_is_parsed_valid(parsed)
 
     proccess_parsed(parsed)
+
 
 def check_is_parsed_valid(parsed):
     check_is_delete_list_valid(parsed)
@@ -97,6 +102,7 @@ def check_is_delete_list_valid(parsed):
             msg = "{0} is not valid arg".format(delete_arg)
             raise argparse.ArgumentTypeError(msg)
 
+
 def check_is_online_offline_together(parsed):
     online = getattr(parsed, Parser.USER_ONLINE, None)
     offline = getattr(parsed, Parser.USER_OFFLINE, None)
@@ -104,19 +110,21 @@ def check_is_online_offline_together(parsed):
         msg = 'Online and offline modes were specified together'
         raise argparse.ArgumentTypeError(msg)
 
+
 def delete_arg(arg):
     valid_delete_arg_list = [Parser.TASK_TITLE, Parser.TASK_DESCRIPTION,
-                            Parser.TASK_START_TIME, Parser.TASK_END_TIME,
-                            Parser.TASK_DEADLINE, Parser.TASK_PARENT_ID,
-                            Parser.USER_LOGIN, Parser.TASK_PRIORITY,
-                            Parser.TASK_STATUS, Parser.TASK_NOTIFICATE_START,
-                            Parser.TASK_NOTIFICATE_END, Parser.TASK_NOTIFICATE_DEADLINE,
-                            Parser.PLAN_START, Parser.PLAN_END,
-                            Parser.PLAN_EXCLUDE]
+                             Parser.TASK_START_TIME, Parser.TASK_END_TIME,
+                             Parser.TASK_DEADLINE, Parser.TASK_PARENT_ID,
+                             Parser.USER_LOGIN, Parser.TASK_PRIORITY,
+                             Parser.TASK_STATUS, Parser.TASK_NOTIFICATE_START,
+                             Parser.TASK_NOTIFICATE_END, Parser.TASK_NOTIFICATE_DEADLINE,
+                             Parser.PLAN_START, Parser.PLAN_END,
+                             Parser.PLAN_EXCLUDE]
     if not arg in valid_delete_arg_list:
         raise argparse.ArgumentTypeError("{0} is not valid arg".format(arg))
 
     return arg
+
 
 def time_arg(arg):
     try:
@@ -137,11 +145,12 @@ def time_arg(arg):
                 return today
         else:
             raise ValueError
-        
+
     except ValueError:
         msg = ('Not a valid date: {0}. Please, write date in format like '
-                '[Day]-[Month]-[Year] or today[+-][shift]').format(arg)
+               '[Day]-[Month]-[Year] or today[+-][shift]').format(arg)
         raise argparse.ArgumentTypeError(msg)
+
 
 def time_shift_arg(arg):
     try:
@@ -150,9 +159,12 @@ def time_shift_arg(arg):
             days = shift.group(2)
             months = shift.group(4)
             years = shift.group(6)
-            if days is None: days = 0
-            if months is None: months = 0
-            if years is None: years = 0
+            if days is None:
+                days = 0
+            if months is None:
+                months = 0
+            if years is None:
+                years = 0
             epoch = datetime.datetime.utcfromtimestamp(0)
             return epoch + datetime.timedelta(int(days)) + datetime.timedelta(int(months)) + datetime.timedelta(int(years))
         else:
@@ -160,18 +172,20 @@ def time_shift_arg(arg):
 
     except ValueError:
         msg = ('Not a valid shift: {}. Please, write shift in formal like '
-                '[Days]d[Months]m[Years]y').format(arg)
+               '[Days]d[Months]m[Years]y').format(arg)
         raise argparse.ArgumentTypeError(msg)
+
 
 def nargs_range_action(min, max):
     class RangeNargsAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             if not min <= len(values) <= max:
-                message='argument "{}" requires between {} and {} arguments'.format(
+                message = 'argument "{}" requires between {} and {} arguments'.format(
                     self.dest, min, max)
                 raise argparse.ArgumentTypeError(message)
             setattr(namespace, self.dest, values)
     return RangeNargsAction
+
 
 def init_task_parser(root):
     task_parser = root.add_parser(Parser.TASK)
@@ -180,144 +194,175 @@ def init_task_parser(root):
     init_plan_parser(task_root_subparser)
 
     add_task_parser = task_root_subparser.add_parser(Parser.ADD)
-    add_task_parser.add_argument(Parser.prefix().TASK_TID, 
-        type=int)
-    add_task_parser.add_argument(Parser.prefix().TASK_TITLE, 
-        type=str, required=True)
-    add_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION, 
-        type=str)
-    add_task_parser.add_argument(Parser.prefix().TASK_START_TIME, 
-        type=time_arg)
-    add_task_parser.add_argument(Parser.prefix().TASK_END_TIME, 
-        type=time_arg)
-    add_task_parser.add_argument(Parser.prefix().TASK_DEADLINE, 
-        type=time_arg)
+    add_task_parser.add_argument(Parser.prefix().TASK_TID,
+                                 type=int)
+    add_task_parser.add_argument(Parser.prefix().TASK_TITLE,
+                                 type=str, required=True)
+    add_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
+                                 type=str)
+    add_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
+                                 type=time_arg)
+    add_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
+                                 type=time_arg)
+    add_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
+                                 type=time_arg)
     add_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
-        type=int)
+                                 type=int)
     add_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
-        choices=['low', 'normal', 'high', 'highest'])
+                                 choices=['low', 'normal', 'high', 'highest'])
     add_task_parser.add_argument(Parser.prefix().TASK_STATUS,
-        choices=['pending', 'active', 'completed', 'overdue'])
+                                 choices=['pending', 'active', 'completed', 'overdue'])
     add_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_START,
-        action='store_true')
+                                 action='store_true')
     add_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_END,
-        action='store_true')
+                                 action='store_true')
     add_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_DEADLINE,
-        action='store_true')
+                                 action='store_true')
 
     show_task_parser = task_root_subparser.add_parser(Parser.SHOW)
-    show_task_parser.add_argument(Parser.prefix().TASK_TID, 
-        type=int)
-    show_task_parser.add_argument(Parser.prefix().TASK_TITLE, 
-        type=str)
-    show_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION, 
-        type=str)
-    show_task_parser.add_argument(Parser.prefix().TASK_START_TIME, 
-        type=time_arg)
-    show_task_parser.add_argument(Parser.prefix().TASK_END_TIME, 
-        type=time_arg)
-    show_task_parser.add_argument(Parser.prefix().TASK_DEADLINE, 
-        type=time_arg)
+    show_task_parser.add_argument(Parser.prefix().TASK_TID,
+                                  type=int)
+    show_task_parser.add_argument(Parser.prefix().TASK_TITLE,
+                                  type=str)
+    show_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
+                                  type=str)
+    show_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
+                                  type=time_arg)
+    show_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
+                                  type=time_arg)
+    show_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
+                                  type=time_arg)
     show_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
-        choices=['low', 'normal', 'high', 'highest'])
+                                  choices=['low', 'normal', 'high', 'highest'])
     show_task_parser.add_argument(Parser.prefix().TASK_STATUS,
-        choices=['pending', 'active', 'completed', 'overdue'])
+                                  choices=['pending', 'active', 'completed', 'overdue'])
     show_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_START,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_END,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_DEADLINE,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_START,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_END,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_DEADLINE,
-        action='store_true')
+                                  action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_TIME,
-        type=time_arg, nargs='+', action=nargs_range_action(1, 2))
+                                  type=time_arg, nargs='+', action=nargs_range_action(1, 2))
 
     # TODO: Is it need?
     show_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
-        type=int)
+                                  type=int)
 
     delete_task_parser = task_root_subparser.add_parser(Parser.DELETE)
-    delete_task_parser.add_argument(Parser.prefix().TASK_TID, 
-        type=int, required=True)
+    delete_task_parser.add_argument(Parser.prefix().TASK_TID,
+                                    type=int, required=True)
 
     edit_task_parser = task_root_subparser.add_parser(Parser.EDIT)
-    edit_task_parser.add_argument(Parser.prefix().TASK_TID, 
-        type=int, required=True)
-    edit_task_parser.add_argument(Parser.prefix().TASK_TITLE, 
-        type=str)
-    edit_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION, 
-        type=str)
-    edit_task_parser.add_argument(Parser.prefix().TASK_START_TIME, 
-        type=time_arg)
-    edit_task_parser.add_argument(Parser.prefix().TASK_END_TIME, 
-        type=time_arg)
-    edit_task_parser.add_argument(Parser.prefix().TASK_DEADLINE, 
-        type=time_arg)
+    edit_task_parser.add_argument(Parser.prefix().TASK_TID,
+                                  type=int, required=True)
+    edit_task_parser.add_argument(Parser.prefix().TASK_TITLE,
+                                  type=str)
+    edit_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
+                                  type=str)
+    edit_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
+                                  type=time_arg)
+    edit_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
+                                  type=time_arg)
+    edit_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
+                                  type=time_arg)
     edit_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
-        type=int)
+                                  type=int)
     edit_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
-        choices=['low', 'normal', 'high', 'highest'])
+                                  choices=['low', 'normal', 'high', 'highest'])
     edit_task_parser.add_argument(Parser.prefix().TASK_STATUS,
-        choices=['pending', 'active', 'completed', 'overdue'])
+                                  choices=['pending', 'active', 'completed', 'overdue'])
     edit_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_START,
-        action='store_true')
+                                  action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_END,
-        action='store_true')
+                                  action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_DEADLINE,
-        action='store_true')
+                                  action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_START,
-        action='store_true')
+                                  action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_END,
-        action='store_true')
+                                  action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_DEADLINE,
-        action='store_true')
-    edit_task_parser.add_argument(Parser.prefix().DELETE, 
-        type=delete_arg, nargs='+')
+                                  action='store_true')
+    edit_task_parser.add_argument(Parser.prefix().DELETE,
+                                  type=delete_arg, nargs='+')
+
 
 def init_plan_parser(root):
     plan_parser = root.add_parser(Parser.PLAN)
     plan_root_subparser = plan_parser.add_subparsers(dest=Parser.PLAN)
 
     add_plan_parser = plan_root_subparser.add_parser(Parser.ADD)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_TID, 
-        type=int, required=True)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_START, 
-        type=time_arg)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_END, 
-        type=time_arg)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT, 
-        type=time_shift_arg, required=True)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE, 
-        type=time_arg, nargs='+')
+    add_plan_parser.add_argument(Parser.prefix().PLAN_TID,
+                                 type=int, required=True)
+    add_plan_parser.add_argument(Parser.prefix().PLAN_START,
+                                 type=time_arg)
+    add_plan_parser.add_argument(Parser.prefix().PLAN_END,
+                                 type=time_arg)
+    add_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT,
+                                 type=time_shift_arg, required=True)
+    add_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE,
+                                 type=time_arg, nargs='+')
 
     delete_plan_parser = plan_root_subparser.add_parser(Parser.DELETE)
-    delete_plan_parser.add_argument(Parser.prefix().PLAN_ID, 
-        type=int, required=True)
+    delete_plan_parser.add_argument(Parser.prefix().PLAN_ID,
+                                    type=int, required=True)
+
+    show_plan_parser = plan_root_subparser.add_parser(Parser.SHOW)
+    group = show_plan_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(Parser.prefix().PLAN_ID,
+                                    type=int)
+    group.add_argument(Parser.prefix().PLAN_TID,
+                                    type=int)
+    show_plan_parser.add_argument(Parser.prefix().PLAN_REPEATS,
+                                  type=int)
 
     edit_plan_parser = plan_root_subparser.add_parser(Parser.EDIT)
     edit_plan_parser.add_argument(Parser.prefix().PLAN_ID,
-        type=int, required=True)
-    edit_plan_parser.add_argument(Parser.prefix().PLAN_TID,
-        type=int)
-    edit_plan_parser.add_argument(Parser.prefix().PLAN_START, 
-        type=str)
-    edit_plan_parser.add_argument(Parser.prefix().PLAN_END, 
-        type=str)
-    edit_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT, 
-        type=time_shift_arg)
-    edit_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE, 
-        type=time_arg, nargs='+')
-    edit_plan_parser.add_argument(Parser.prefix().DELETE, 
-        type=delete_arg, nargs='+')
+                                  type=int, required=True)
+    edit_plan_parser.add_argument(Parser.prefix().PLAN_END,
+                                  type=time_arg)
+    edit_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT,
+                                  type=time_shift_arg)
+    edit_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE,
+                                  type=time_arg, nargs='+')
+    edit_plan_parser.add_argument(Parser.prefix().DELETE,
+                                  type=delete_arg, nargs='+')
+
+    edit_plan_subparsers = edit_plan_parser.add_subparsers(dest=Parser.PLAN_REPEATS)
+    edit_repeat_parser = edit_plan_subparsers.add_parser(Parser.PLAN_REPEATS)
+    edit_repeat_parser.add_argument(Parser.PLAN_REPEATS,
+                                  type=int)
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_PRIORITY,
+                                  choices=['low', 'normal', 'high', 'highest'])
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_STATUS,
+                                  choices=['pending', 'active', 'completed', 'overdue'])
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_START,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_END,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOTIFICATE_DEADLINE,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_START,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_END,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_DEADLINE,
+                                  action='store_true')
+    edit_repeat_parser.add_argument(Parser.prefix().DELETE,
+                                  type=delete_arg, nargs='+')
+    edit_repeat_parser.set_defaults(edit='repeats')
 
 def init_overall_task_parser(root):
     overall_task_parser = root.add_parser(Parser.OVERALL_TASK)
     overall_task_parser.add_argument(Parser.OVERALL_TASK, action='store_true')
+
 
 def init_user_parser(root):
     user_parser = root.add_parser(Parser.USER)
@@ -325,38 +370,41 @@ def init_user_parser(root):
 
     add_user_parser = user_root_subparser.add_parser(Parser.ADD)
     add_user_parser.add_argument(Parser.prefix().USER_UID,
-        type=int)
+                                 type=int)
     add_user_parser.add_argument(Parser.prefix().USER_LOGIN,
-        type=str, required=True)
+                                 type=str, required=True)
 
     show_user_parser = user_root_subparser.add_parser(Parser.SHOW)
     show_user_parser.add_argument(Parser.prefix().USER_UID,
-        type=int)
+                                  type=int)
     show_user_parser.add_argument(Parser.prefix().USER_LOGIN,
-        type=str)
+                                  type=str)
     show_user_parser.add_argument(Parser.prefix().USER_ONLINE,
-        action='store_true')
+                                  action='store_true')
     show_user_parser.add_argument(Parser.prefix().USER_OFFLINE,
-        action='store_true')
+                                  action='store_true')
 
     delete_user_parser = user_root_subparser.add_parser(Parser.DELETE)
     delete_user_parser.add_argument(Parser.prefix().USER_UID)
 
     edit_user_parser = user_root_subparser.add_parser(Parser.EDIT)
     edit_user_parser.add_argument(Parser.prefix().USER_UID,
-        type=int)
+                                  type=int)
     edit_user_parser.add_argument(Parser.prefix().USER_LOGIN,
-        type=str)
-    edit_user_parser.add_argument(Parser.prefix().DELETE, 
-        type=delete_arg, nargs='+')
+                                  type=str)
+    edit_user_parser.add_argument(Parser.prefix().DELETE,
+                                  type=delete_arg, nargs='+')
+
 
 def init_login_parser(root):
     login_parser = root.add_parser(Parser.LOGIN)
     login_parser.add_argument(Parser.LOGIN, type=str)
 
+
 def init_logout_parser(root):
     logout_parser = root.add_parser(Parser.LOGOUT)
     logout_parser.add_argument(Parser.LOGOUT, action='store_true')
+
 
 def proccess_parsed(parsed):
     if parsed.action == Parser.TASK:
@@ -369,6 +417,7 @@ def proccess_parsed(parsed):
         proccess_logout(parsed)
     if parsed.action == Parser.OVERALL_TASK:
         proccess_overall_task(parsed)
+
 
 def proccess_task(parsed):
     if parsed.task == Parser.ADD:
@@ -390,11 +439,18 @@ def proccess_plan(parsed):
     if parsed.plan == Parser.DELETE:
         proccess_plan_remove(parsed)
     if parsed.plan == Parser.EDIT:
-        proccess_plan_edit(parsed)
+        if getattr(parsed, Parser.EDIT, None) == Parser.PLAN_REPEATS:
+            proccess_repeat_edit(parsed)
+        else:
+            proccess_plan_edit(parsed)
+    if parsed.plan == Parser.SHOW:
+        proccess_plan_show(parsed)
+
 
 def proccess_task_add(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
-    if tid is not None: tid = int(int)
+    if tid is not None:
+        tid = int(int)
     title = getattr(parsed, Parser.TASK_TITLE, None)
     description = getattr(parsed, Parser.TASK_DESCRIPTION, None)
     start_time = getattr(parsed, Parser.TASK_START_TIME, None)
@@ -405,21 +461,17 @@ def proccess_task_add(parsed):
     status = getattr(parsed, Parser.TASK_STATUS, None)
     notificate_start = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
     notificate_end = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
-    notificate_deadline = getattr(parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
+    notificate_deadline = getattr(
+        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
 
-    start_time_millis = datetime_to_milliseconds(start_time)
-    end_time_millis = datetime_to_milliseconds(end_time)
-    deadline_time_millis = datetime_to_milliseconds(deadline_time)
+    start_time_millis = utils.datetime_to_milliseconds(start_time)
+    end_time_millis = utils.datetime_to_milliseconds(end_time)
+    deadline_time_millis = utils.datetime_to_milliseconds(deadline_time)
 
     try:
-        users = UserController.fetch_user(online=True)
-        if len(users) == 0:
-            console_response.show_noone_login()
-            return
-        
-        success = TaskController.save_task(users[0].uid, parent, title, description,
-            start_time_millis, end_time_millis, deadline_time_millis, priority,
-            status, notificate_start, notificate_end, notificate_deadline, tid)
+        success = TaskController.save_task(None, parent, title, description,
+                                           start_time_millis, end_time_millis, deadline_time_millis, priority,
+                                           status, notificate_start, notificate_end, notificate_deadline, tid)
         if success:
             console_response.show_common_ok()
         else:
@@ -431,17 +483,12 @@ def proccess_task_add(parsed):
 
 def proccess_plan_add(parsed):
     tid = getattr(parsed, Parser.PLAN_TID, None)
-    start = getattr(parsed, Parser.PLAN_START, None)
     end = getattr(parsed, Parser.PLAN_END, None)
     shift = getattr(parsed, Parser.PLAN_SHIFT, None)
-    exclude = getattr(parsed, Parser.PLAN_EXCLUDE, None)
 
-    if exclude is not None:
-        exclude = [datetime_to_milliseconds(exclude_time) for exclude_time in exclude]
+    shift_time_millis = utils.datetime_to_milliseconds(shift)
 
-    success = TaskController.add_plan(tid, datetime_to_milliseconds(start), 
-                                    datetime_to_milliseconds(end), 
-                                    datetime_to_milliseconds(shift), exclude)
+    success = PlanController.attach_plan(tid, shift_time_millis, end)
     if success:
         console_response.show_common_ok()
     else:
@@ -450,51 +497,117 @@ def proccess_plan_add(parsed):
 def proccess_plan_remove(parsed):
     plan_id = getattr(parsed, Parser.PLAN_ID, None)
 
-    success = TaskController.remove_plan(tid, plan_id)
+    success = PlanController.delete_plan(plan_id)
     if success:
         console_response.show_common_ok()
     else:
         console_response.show_common_error('Plan was not deleted')
 
-def proccess_plan_edit(parsed):
+def proccess_plan_show(parsed):
     plan_id = getattr(parsed, Parser.PLAN_ID, None)
     tid = getattr(parsed, Parser.PLAN_TID, None)
-    start = getattr(parsed, Parser.PLAN_START, None)
+    repeats = getattr(parsed, Parser.PLAN_REPEATS, None)
+
+    if tid is not None:
+        plans = PlanController.get_plan_for_common_task(tid)
+        edit_plans = PlanController.get_plan_for_edit_repeat_task(tid)
+        plans.extend(edit_plans)
+        if len(plans) != 0:
+            console_response.show_plan_in_console(plans)
+
+    if plan_id is not None:
+        plans = PlanController.get_plans_by_id(plan_id)
+        if len(plans) != 0:
+            console_response.show_plan_in_console(plans)
+
+    if repeats is not None:
+        tasks = TaskController.get_plan_tasks_by_numbers(plan_id, range(repeats))
+        if len(tasks) != 0:
+            console_response.show_tasks_in_console(tasks)
+
+def proccess_plan_edit(parsed):
+    plan_id = getattr(parsed, Parser.PLAN_ID, None)
     end = getattr(parsed, Parser.PLAN_END, None)
     shift = getattr(parsed, Parser.PLAN_SHIFT, None)
     exclude = getattr(parsed, Parser.PLAN_EXCLUDE, None)
     delete = getattr(parsed, Parser.DELETE, None)
 
-    if exclude is not None:
-        exclude = [datetime_to_milliseconds(exclude_time) for exclude_time in exclude]
+    end_time_millis = utils.datetime_to_milliseconds(end)
+    shift_time_millis = utils.datetime_to_milliseconds(shift)
 
-    args = {}
-    if tid is not None:
-        args['tid'] = tid
-    if start is not None:
-        args['start'] = datetime_to_milliseconds(start)
-    if end is not None:
-        args['end'] = datetime_to_milliseconds(end)
-    if shift is not None:
-        args['shift'] = datetime_to_milliseconds(shift)
+    success = True
+    if end_time_millis is not None or shift_time_millis is not None:
+        success = PlanController.edit_plan(plan_id, end=end_time_millis, shift=shift_time_millis)
+
     if exclude is not None:
-        args['exclude'] = exclude
+        for exclude_datetime in exclude:
+            exclude_time_millis = utils.datetime_to_milliseconds(exclude_datetime)
+            success = PlanController.delete_repeats_from_plan_by_time_range(plan_id, (exclude_time_millis, ))
 
     if delete is not None:
         for to_delete in delete:
-            if to_delete == Parser.PLAN_START:
-                args['start'] = None
             if to_delete == Parser.PLAN_END:
-                args['end'] = None
+                success = PlanController.edit_plan(plan_id, end=end)
             if to_delete == Parser.PLAN_EXCLUDE:
-                args['exclude'] = None
- 
+                success = PlanController.restore_all_repeats(plan_id)
 
-    success = TaskController.edit_plan(plan_id, **args)
     if success:
         console_response.show_common_ok()
     else:
         console_response.show_common_error('Plan was not edited')
+
+def proccess_repeat_edit(parsed):
+    plan_id = getattr(parsed, Parser.PLAN_ID, None)
+    repeat = getattr(parsed, Parser.PLAN_REPEATS, None)
+    priority = getattr(parsed, Parser.TASK_PRIORITY, None)
+    status = getattr(parsed, Parser.TASK_STATUS, None)
+    notificate_start = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
+    notificate_end = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
+    notificate_deadline = getattr(
+        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
+    not_notificate_start = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_START, None)
+    not_notificate_end = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_END, None)
+    not_notificate_deadline = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
+    delete = getattr(parsed, Parser.DELETE, None)
+
+    args = {}
+    if priority is not None:
+        args['priority'] = priority
+    if status is not None:
+        args['status'] = status
+    if notificate_start is True:
+        args['notificate_supposed_start'] = notificate_start
+    if notificate_end is True:
+        args['notificate_supposed_end'] = notificate_end
+    if notificate_deadline is True:
+        args['notificate_deadline'] = notificate_deadline
+    if not_notificate_start is True:
+        args['notificate_supposed_start'] = not_notificate_start
+    if not_notificate_end is True:
+        args['notificate_supposed_end'] = not_notificate_end
+    if not_notificate_deadline is True:
+        args['notificate_deadline'] = not_notificate_deadline
+    if delete is not None:
+        for to_delete in delete:
+            if to_delete == Parser.TASK_PRIORITY:
+                args['priority'] = None
+            if to_delete == Parser.TASK_STATUS:
+                args['status'] = None
+            if to_delete == Parser.TASK_NOTIFICATE_START:
+                args['notificate_supposed_start'] = False
+            if to_delete == Parser.TASK_NOTIFICATE_END:
+                args['notificate_supposed_end'] = False
+            if to_delete == Parser.TASK_NOTIFICATE_DEADLINE:
+                args['notificate_deadline'] = False
+
+    success = PlanController.edit_repeat_by_number(plan_id, repeat, **args)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('Repeat was not edited')
+
 
 def proccess_task_show(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
@@ -503,59 +616,54 @@ def proccess_task_show(parsed):
     parent = getattr(parsed, Parser.TASK_PARENT_ID, None)
     priority = getattr(parsed, Parser.TASK_PRIORITY, None)
     status = getattr(parsed, Parser.TASK_STATUS, None)
-    notificate_start_parser = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
+    notificate_start_parser = getattr(
+        parsed, Parser.TASK_NOTIFICATE_START, None)
     notificate_end_parser = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
-    notificate_deadline_parser = getattr(parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
-    not_notificate_start_parser = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_START, None)
-    not_notificate_end_parser = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_END, None)
-    not_notificate_deadline_parser = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
+    notificate_deadline_parser = getattr(
+        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
+    not_notificate_start_parser = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_START, None)
+    not_notificate_end_parser = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_END, None)
+    not_notificate_deadline_parser = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
     time_to_show = getattr(parsed, Parser.TASK_TIME, None)
 
-    # FUCK
-
-    notificate_supposed_start =  None
+    notificate_supposed_start = None
     if notificate_start_parser:
         notificate_supposed_start = True
     if not_notificate_start_parser:
         notificate_supposed_start = False
-    notificate_supposed_end =  None
+    notificate_supposed_end = None
     if notificate_end_parser:
         notificate_supposed_end = True
     if not_notificate_end_parser:
         notificate_supposed_end = False
-    notificate_deadline =  None
+    notificate_deadline = None
     if notificate_deadline_parser:
         notificate_deadline = True
     if not_notificate_deadline_parser:
         notificate_deadline = False
 
-    users = UserController.fetch_user(online=True)
-    if len(users) == 0:
-        console_response.show_noone_login()
-        return
-
     time_range = None
     if time_to_show is not None:
         if len(time_to_show) == 1:
-        # TEST 
-            # time_to_show.append(datetime.datetime(time_to_show[0].year, time_to_show[0].month, 
-            #                                 time_to_show[0].day + 1, time_to_show[0].hour,
-            #                                 time_to_show[0].minute, time_to_show[0].second))
             time_to_show.append(time_to_show[0] + datetime.timedelta(days=1))
-        time_range = (datetime_to_milliseconds(time_to_show[0]), 
-                        datetime_to_milliseconds(time_to_show[1]))
+        time_range = (utils.datetime_to_milliseconds(time_to_show[0]),
+                      utils.datetime_to_milliseconds(time_to_show[1]))
 
-    tasks = TaskController.fetch_tasks(uid=users[0].uid, parent_tid=parent,
-                                     tid=tid, title=title, description=descr,
-                                     priority=priority, status=status,
-                                     notificate_supposed_start=notificate_supposed_start,
-                                     notificate_supposed_end=notificate_supposed_end,
-                                     notificate_deadline=notificate_deadline,
-                                     time_range=time_range)
+    tasks = TaskController.fetch_tasks(uid=None, parent_tid=parent,
+                                       tid=tid, title=title, description=descr,
+                                       priority=priority, status=status,
+                                       notificate_supposed_start=notificate_supposed_start,
+                                       notificate_supposed_end=notificate_supposed_end,
+                                       notificate_deadline=notificate_deadline,
+                                       time_range=time_range)
     if tasks is not None:
         console_response.show_tasks_like_tree_in_console(tasks)
     else:
         console_response.show_common_error()
+
 
 def proccess_task_delete(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
@@ -566,11 +674,12 @@ def proccess_task_delete(parsed):
     else:
         console_response.show_common_error('Task was not deleted')
 
+
 def proccess_task_edit(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
     if tid is None:
         raise ValueError('tid is None in task edit')
-    
+
     title = getattr(parsed, Parser.TASK_TITLE, None)
     description = getattr(parsed, Parser.TASK_DESCRIPTION, None)
     start_time = getattr(parsed, Parser.TASK_START_TIME, None)
@@ -582,10 +691,13 @@ def proccess_task_edit(parsed):
     status = getattr(parsed, Parser.TASK_STATUS, None)
     notificate_start = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
     notificate_end = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
-    notificate_deadline = getattr(parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
-    not_notificate_start = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_START, None)
+    notificate_deadline = getattr(
+        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
+    not_notificate_start = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_START, None)
     not_notificate_end = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_END, None)
-    not_notificate_deadline = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
+    not_notificate_deadline = getattr(
+        parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
 
     args = {}
     if title is not None:
@@ -593,11 +705,11 @@ def proccess_task_edit(parsed):
     if description is not None:
         args['description'] = description
     if start_time is not None:
-        args['supposed_start_time'] = datetime_to_milliseconds(start_time)
+        args['supposed_start_time'] = utils.datetime_to_milliseconds(start_time)
     if end_time is not None:
-        args['supposed_end_time'] = datetime_to_milliseconds(end_time)
+        args['supposed_end_time'] = utils.datetime_to_milliseconds(end_time)
     if deadline_time is not None:
-        args['deadline_time'] = datetime_to_milliseconds(deadline_time)
+        args['deadline_time'] = utils.datetime_to_milliseconds(deadline_time)
     if parent is not None:
         args['parent_tid'] = parent
     if priority is not None:
@@ -653,12 +765,14 @@ def proccess_task_edit(parsed):
     except InvalidParentId as error:
         console_response.show_invalid_parent_id_error(error.parent_tid)
 
+
 def proccess_overall_task(parsed):
     tasks = TaskController.fetch_tasks()
     if tasks is not None:
         console_response.show_full_tasks_in_console(tasks)
     else:
         console_response.show_common_error()
+
 
 def proccess_user(parsed):
     if parsed.user == Parser.ADD:
@@ -674,7 +788,8 @@ def proccess_user(parsed):
 
 def proccess_user_add(parsed):
     uid = getattr(parsed, Parser.USER_UID, None)
-    if uid is not None: uid = int(uid)
+    if uid is not None:
+        uid = int(uid)
     login = getattr(parsed, Parser.USER_LOGIN, None)
 
     try:
@@ -704,19 +819,23 @@ def proccess_user_show(parsed):
     else:
         console_response.show_common_error()
 
+
 def proccess_user_delete(parsed):
     uid = getattr(parsed, Parser.USER_UID, None)
-    if uid is not None: uid = int(uid)
-    
+    if uid is not None:
+        uid = int(uid)
+
     success = UserController.delete_user(uid)
     if success:
         console_response.show_common_ok()
     else:
         console_response.show_common_error('User was not deleted')
 
+
 def proccess_user_edit(parsed):
     uid = getattr(parsed, Parser.USER_UID, None)
-    if uid is not None: uid = int(uid)
+    if uid is not None:
+        uid = int(uid)
     login = getattr(parsed, Parser.USER_LOGIN, None)
     delete = getattr(parsed, Parser.DELETE, None)
 
@@ -737,6 +856,7 @@ def proccess_user_edit(parsed):
     except UserNotExistsError as error:
         print(error)
 
+
 def proccess_login(parsed):
     login = getattr(parsed, Parser.LOGIN, None)
     try:
@@ -753,6 +873,7 @@ def proccess_login(parsed):
     except UserNotExistsError as error:
         print(error)
 
+
 def proccess_logout(parsed):
     try:
         users_online = UserController.fetch_user(online=True)
@@ -768,9 +889,3 @@ def proccess_logout(parsed):
             console_response.show_common_error()
     except UserNotExistsError as error:
         print(error)
-
-def datetime_to_milliseconds(datetime_inst):
-    if datetime_inst is None:
-        return None
-    epoch = datetime.datetime.utcfromtimestamp(0)
-    return (datetime_inst - epoch).total_seconds() * 1000.0
