@@ -1,5 +1,7 @@
 class Project():
 
+    default_project_name = 'Default'
+
     def __init__(self):
         self.pid = None
         self.creator = None
@@ -19,6 +21,3 @@ class Project():
             return False
 
         return self.__dict__ == other.__dict__
-
-default_project = Project()
-default_project.name = 'Default'

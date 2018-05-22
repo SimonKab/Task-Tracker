@@ -1,7 +1,8 @@
 from . import console_response
-from .requests.controllers import Controller, TaskController, UserController, PlanController
+from .requests.controllers import Controller, TaskController, UserController, PlanController, ProjectController
 from .requests.controllers import InvalidTimeError, InvalidParentIdError, TaskTrackerError
 from .requests.controllers import UserAlreadyExistsError, UserNotExistsError, NotAuthenticatedError
+from .requests.controllers import InvalidProjectIdError
 from . import utils
 import argparse
 import datetime
@@ -19,6 +20,7 @@ class Parser:
 
     TASK = 'task'
     TASK_TID = 'tid'
+    TASK_PID = 'pid'
     TASK_TITLE = 'title'
     TASK_DESCRIPTION = 'descr'
     TASK_START_TIME = 'start'
@@ -46,6 +48,11 @@ class Parser:
     PLAN_SHIFT = 'shift'
     PLAN_EXCLUDE = 'exclude'
     PLAN_REPEATS = 'repeats'
+
+    PROJECT = 'project'
+    PROJECT_ID = 'pid'
+    PROJECT_CREATOR = 'creator'
+    PROJECT_NAME = 'name'
 
     OVERALL_TASK = 'overall_task'
 
@@ -94,16 +101,19 @@ def parse():
         if users is not None and len(users) != 0:
             Controller.authentication(users[0].uid)
 
-    TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+    if Controller.is_authenticated():
+        TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
 
     parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX,
                                      description="Hello) It's task tracker")
+    
     root_subparsers = parser.add_subparsers(dest=Parser.ACTION)
 
     init_task_parser(root_subparsers)
     init_overall_task_parser(root_subparsers)
     init_user_parser(root_subparsers)
     init_login_parser(root_subparsers)
+    init_project_parser(root_subparsers)
 
     parsed = parser.parse_args()
     check_is_parsed_valid(parsed)
@@ -127,7 +137,6 @@ def check_is_delete_list_valid(parsed):
             msg = "{0} is not valid arg".format(delete_arg)
             raise argparse.ArgumentTypeError(msg)
 
-
 def check_is_online_offline_together(parsed):
     online = getattr(parsed, Parser.USER_ONLINE, None)
     offline = getattr(parsed, Parser.USER_OFFLINE, None)
@@ -150,9 +159,10 @@ def delete_arg(arg):
 
     return arg
 
-
 def time_arg(arg):
     try:
+        input = arg.split(' ')
+
         simple_date = re.match('[0-9]+-[0-9]+-[0-9]+', arg)
         if simple_date is not None:
             return datetime.datetime.strptime(arg, "%d-%m-%Y")
@@ -168,6 +178,10 @@ def time_arg(arg):
                 return today - datetime.timedelta(days=int(shift))
             else:
                 return today
+
+          simple_time = re.match('[0-9]+:[0-9]+', arg)
+          if simple_time is not None:
+              return datetime.datetime.
         else:
             raise ValueError
 
@@ -179,7 +193,7 @@ def time_arg(arg):
 
 def time_shift_arg(arg):
     try:
-        shift = re.match('(([0-9])*d)?(([0-9])*m)?(([0-9])*y)?', arg)
+        shift = re.match('(([0-9]+)d)?(([0-9]+)m)?(([0-9]+)y)?', arg)
         if shift is not None:
             days = shift.group(2)
             months = shift.group(4)
@@ -190,8 +204,14 @@ def time_shift_arg(arg):
                 months = 0
             if years is None:
                 years = 0
+            
             epoch = datetime.datetime.utcfromtimestamp(0)
-            return epoch + datetime.timedelta(int(days)) + datetime.timedelta(int(months)) + datetime.timedelta(int(years))
+
+            days_timedelta = datetime.timedelta(days=int(days))
+            months_timedelta = datetime.timedelta(days=int(months)*30) 
+            years_timedelta = datetime.timedelta(days=int(years)*365)
+
+            return epoch + days_timedelta + months_timedelta + years_timedelta
         else:
             raise ValueError
 
@@ -220,6 +240,8 @@ def init_task_parser(root):
 
     add_task_parser = task_root_subparser.add_parser(Parser.ADD)
     add_task_parser.add_argument(Parser.prefix().TASK_TID,
+                                 type=int)
+    add_task_parser.add_argument(Parser.prefix().TASK_PID,
                                  type=int)
     add_task_parser.add_argument(Parser.prefix().TASK_TITLE,
                                  type=str, required=True)
@@ -287,6 +309,8 @@ def init_task_parser(root):
     edit_task_parser = task_root_subparser.add_parser(Parser.EDIT)
     edit_task_parser.add_argument(Parser.prefix().TASK_TID,
                                   type=int, required=True)
+    edit_task_parser.add_argument(Parser.prefix().TASK_PID,
+                                  type=int)
     edit_task_parser.add_argument(Parser.prefix().TASK_TITLE,
                                   type=str)
     edit_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
@@ -389,14 +413,36 @@ def init_overall_task_parser(root):
     overall_task_parser = root.add_parser(Parser.OVERALL_TASK)
     overall_task_parser.add_argument(Parser.OVERALL_TASK, action='store_true')
 
+def init_project_parser(root):
+    project_parser = root.add_parser(Parser.PROJECT)
+    project_root_subparser = project_parser.add_subparsers(dest=Parser.PROJECT)
+
+    add_project_parser = project_root_subparser.add_parser(Parser.ADD)
+    add_project_parser.add_argument(Parser.prefix().PROJECT_NAME, 
+                                    type=str, required=True)
+
+    show_project_parser = project_root_subparser.add_parser(Parser.SHOW)
+    group = show_project_parser.add_mutually_exclusive_group()
+    group.add_argument(Parser.prefix().PROJECT_ID, 
+                                     type=int)
+    group.add_argument(Parser.prefix().PROJECT_NAME, 
+                                     type=str)
+
+    delete_project_parser = project_root_subparser.add_parser(Parser.DELETE)
+    delete_project_parser.add_argument(Parser.prefix().PROJECT_ID, 
+                                     type=int, required=True)
+    
+    edit_project_parser = project_root_subparser.add_parser(Parser.EDIT)
+    edit_project_parser.add_argument(Parser.prefix().PROJECT_ID, 
+                                     type=int, required=True)
+    edit_project_parser.add_argument(Parser.prefix().PROJECT_NAME,
+                                     type=str)
 
 def init_user_parser(root):
     user_parser = root.add_parser(Parser.USER)
     user_root_subparser = user_parser.add_subparsers(dest=Parser.USER)
 
     add_user_parser = user_root_subparser.add_parser(Parser.ADD)
-    add_user_parser.add_argument(Parser.prefix().USER_UID,
-                                 type=int)
     add_user_parser.add_argument(Parser.prefix().USER_LOGIN,
                                  type=str, required=True)
 
@@ -421,7 +467,6 @@ def init_user_parser(root):
     edit_user_parser.add_argument(Parser.prefix().DELETE,
                                   type=delete_arg, nargs='+')
 
-
 def init_login_parser(root):
     login_parser = root.add_parser(Parser.LOGIN)
     login_parser.add_argument(Parser.LOGIN, type=str)
@@ -435,7 +480,8 @@ def proccess_parsed(parsed):
         proccess_login(parsed)
     if parsed.action == Parser.OVERALL_TASK:
         proccess_overall_task(parsed)
-
+    if parsed.action == Parser.PROJECT:
+        proccess_project(parsed)
 
 def proccess_task(parsed):
     if parsed.task == Parser.ADD:
@@ -463,41 +509,6 @@ def proccess_plan(parsed):
             proccess_plan_edit(parsed)
     if parsed.plan == Parser.SHOW:
         proccess_plan_show(parsed)
-
-
-def proccess_task_add(parsed):
-    tid = getattr(parsed, Parser.TASK_TID, None)
-    if tid is not None:
-        tid = int(int)
-    title = getattr(parsed, Parser.TASK_TITLE, None)
-    description = getattr(parsed, Parser.TASK_DESCRIPTION, None)
-    start_time = getattr(parsed, Parser.TASK_START_TIME, None)
-    end_time = getattr(parsed, Parser.TASK_END_TIME, None)
-    deadline_time = getattr(parsed, Parser.TASK_DEADLINE, None)
-    parent = getattr(parsed, Parser.TASK_PARENT_ID, None)
-    priority = getattr(parsed, Parser.TASK_PRIORITY, None)
-    status = getattr(parsed, Parser.TASK_STATUS, None)
-    notificate_start = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
-    notificate_end = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
-    notificate_deadline = getattr(
-        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
-
-    start_time_millis = utils.datetime_to_milliseconds(start_time)
-    end_time_millis = utils.datetime_to_milliseconds(end_time)
-    deadline_time_millis = utils.datetime_to_milliseconds(deadline_time)
-
-    try:
-        success = TaskController.save_task(parent, title, description,
-                                           start_time_millis, end_time_millis, deadline_time_millis, priority,
-                                           status, notificate_start, notificate_end, notificate_deadline, tid)
-        if success:
-            console_response.show_common_ok()
-        else:
-            console_response.show_common_error('Task was not added')
-    except InvalidTimeError as error:
-        console_response.show_invalid_time_range_error(error.start, error.end)
-    except TaskTrackerError as error:
-        console_response.show_common_error(error)
 
 def proccess_plan_add(parsed):
     tid = getattr(parsed, Parser.PLAN_TID, None)
@@ -650,6 +661,41 @@ def proccess_task_show_common(parsed):
     if tasks is not None and len(tasks) != 0:
         console_response.show_tasks_like_tree_in_console(tasks)
 
+def proccess_task_add(parsed):
+    tid = getattr(parsed, Parser.TASK_TID, None)
+    if tid is not None:
+        tid = int(int)
+    pid = getattr(parsed, Parser.TASK_PID, None)
+    title = getattr(parsed, Parser.TASK_TITLE, None)
+    description = getattr(parsed, Parser.TASK_DESCRIPTION, None)
+    start_time = getattr(parsed, Parser.TASK_START_TIME, None)
+    end_time = getattr(parsed, Parser.TASK_END_TIME, None)
+    deadline_time = getattr(parsed, Parser.TASK_DEADLINE, None)
+    parent = getattr(parsed, Parser.TASK_PARENT_ID, None)
+    priority = getattr(parsed, Parser.TASK_PRIORITY, None)
+    status = getattr(parsed, Parser.TASK_STATUS, None)
+    notificate_start = getattr(parsed, Parser.TASK_NOTIFICATE_START, None)
+    notificate_end = getattr(parsed, Parser.TASK_NOTIFICATE_END, None)
+    notificate_deadline = getattr(
+        parsed, Parser.TASK_NOTIFICATE_DEADLINE, None)
+
+    start_time_millis = utils.datetime_to_milliseconds(start_time)
+    end_time_millis = utils.datetime_to_milliseconds(end_time)
+    deadline_time_millis = utils.datetime_to_milliseconds(deadline_time)
+
+    try:
+        success = TaskController.save_task(pid, parent, title, description,
+                                           start_time_millis, end_time_millis, deadline_time_millis, priority,
+                                           status, notificate_start, notificate_end, notificate_deadline, tid)
+        if success:
+            console_response.show_common_ok()
+        else:
+            console_response.show_common_error('Task was not added')
+    except InvalidTimeError as error:
+        console_response.show_invalid_time_range_error(error.start, error.end)
+    except TaskTrackerError as error:
+        console_response.show_common_error(error)
+
 def proccess_task_show(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
     title = getattr(parsed, Parser.TASK_TITLE, None)
@@ -705,7 +751,6 @@ def proccess_task_show(parsed):
     else:
         console_response.show_common_error()
 
-
 def proccess_task_delete(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
 
@@ -715,12 +760,11 @@ def proccess_task_delete(parsed):
     else:
         console_response.show_common_error('Task was not deleted')
 
-
 def proccess_task_edit(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
     if tid is None:
         raise ValueError('tid is None in task edit')
-
+    pid = getattr(parsed, Parser.TASK_PID, None)
     title = getattr(parsed, Parser.TASK_TITLE, None)
     description = getattr(parsed, Parser.TASK_DESCRIPTION, None)
     start_time = getattr(parsed, Parser.TASK_START_TIME, None)
@@ -745,6 +789,8 @@ def proccess_task_edit(parsed):
     args = {}
     if title is not None:
         args['title'] = title
+    if pid is not None:
+        args['pid'] = pid
     if description is not None:
         args['description'] = description
     if start_time is not None:
@@ -774,6 +820,8 @@ def proccess_task_edit(parsed):
 
     if delete is not None:
         for to_delete in delete:
+            if to_delete == Parser.TASK_PID:
+                args['pid'] = None
             if to_delete == Parser.TASK_TITLE:
                 args['title'] = None
             if to_delete == Parser.TASK_DESCRIPTION:
@@ -808,14 +856,12 @@ def proccess_task_edit(parsed):
     except TaskTrackerError as error:
         console_response.show_common_error(error)
 
-
 def proccess_overall_task(parsed):
     tasks = TaskController.fetch_tasks()
     if tasks is not None:
         console_response.show_full_tasks_in_console(tasks)
     else:
         console_response.show_common_error()
-
 
 def proccess_user(parsed):
     if parsed.user == Parser.ADD:
@@ -898,6 +944,74 @@ def proccess_user_edit(parsed):
             console_response.show_common_error('User was not edited')
     except UserNotExistsError as error:
         print(error)
+
+def proccess_project(parsed):
+    if parsed.project == Parser.ADD:
+        proccess_project_add(parsed)
+    if parsed.project == Parser.SHOW:
+        proccess_project_show(parsed)
+    if parsed.project == Parser.DELETE:
+        proccess_project_delete(parsed)
+    if parsed.project == Parser.EDIT:
+        proccess_project_edit(parsed)
+    if parsed.project is None:
+        proccess_project_show(parsed)
+
+def proccess_project_add(parsed):
+    name = getattr(parsed, Parser.PROJECT_NAME, None)
+    
+    success = ProjectController.save_project(name)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('Project was not added')
+
+def proccess_project_show(parsed):
+    pid = getattr(parsed, Parser.PROJECT_ID, None)
+    name = getattr(parsed, Parser.PROJECT_NAME, None)
+    
+    if name is not None:
+        projects = ProjectController.fetch_projects(name=name)
+        if projects is None or len(projects) == 0:
+            console_response.show_common_error('Project is not exists')
+        pid = projects[0].pid
+
+    if pid is not None:
+        try:
+            tasks = TaskController.fetch_tasks(pid=pid)
+            if tasks is not None:
+                console_response.show_tasks_like_tree_in_console(tasks)
+
+        except InvalidProjectIdError as error:
+          console_response.show_common_error(error)
+
+        return
+
+    projects = ProjectController.fetch_projects()
+    if projects is not None:
+        console_response.show_projects(projects)
+
+def proccess_project_delete(parsed):
+    pid = getattr(parsed, Parser.PROJECT_ID, None)
+
+    success = ProjectController.remove_project(pid)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('Project was not removed')
+
+def proccess_project_edit(parsed):
+    pid = getattr(parsed, Parser.PROJECT_ID, None)
+    name = getattr(parsed, Parser.PROJECT_NAME, None)
+
+    if name is not None:
+        success = ProjectController.edit_project(pid, name)
+    else:
+        success = ProjectController.edit_project(pid)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('Project was not edited')
 
 
 def proccess_login(parsed):

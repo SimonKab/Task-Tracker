@@ -52,8 +52,41 @@ class UserTableModel(BaseTableModel):
     class Meta:
         table_name = 'user'
 
+class ProjectTableModel(BaseTableModel):
+    pid = AutoField(primary_key=True)
+    creator = ForeignKeyField(UserTableModel, backref='projects')
+    name = TextField(null=True)
+
+    def to_project(self):
+        project = Project()
+        project.pid = self.pid
+        user_table_model = self.creator
+        if user_table_model is not None:
+            project.creator = user_table_model.uid
+        project.name = self.name
+        return project
+
+    class Meta:
+        table_name = 'project'
+
+class ProjectRelationsTableModel(BaseTableModel):
+    relation_id = AutoField(primary_key=True)
+    pid = ForeignKeyField(ProjectTableModel, backref='project_relations')
+    uid = ForeignKeyField(UserTableModel, backref='project_relations')
+    kind = IntegerField(null=False)
+
+    class Kind():
+        ADMIN = 0
+        GUEST = 1
+
+    class Meta:
+        table_name = 'project'
+
+_DEFAULT_DB_NAME = 'tasktracker.db'
+
 class TaskTableModel(BaseTableModel):
     tid = IntegerField(primary_key=True)
+    pid = ForeignKeyField(ProjectTableModel, backref='tasks')
     uid = ForeignKeyField(UserTableModel, backref='tasks', null=True)
     title = TextField(null=True)
     description = TextField(null=True)
@@ -71,6 +104,8 @@ class TaskTableModel(BaseTableModel):
     def map_task_attr(self, task_field, value):
         if task_field == Task.Field.tid:
             self.tid = value
+        if task_field == Task.Field.pid:
+            self.pid = value
         if task_field == Task.Field.parent_tid:
             self.parent_tid = value
         if task_field == Task.Field.uid:
@@ -99,10 +134,13 @@ class TaskTableModel(BaseTableModel):
     def to_task(self):
         task = Task()
         task.tid = self.tid
+        project_table_model = self.pid
+        if project_table_model is not None:
+            task.pid = project_table_model.pid
         task.parent_tid = self.parent_tid
-        userTableModel = self.uid
-        if userTableModel is not None:
-            task.uid = userTableModel.uid
+        user_table_model = self.uid
+        if user_table_model is not None:
+            task.uid = user_table_model.uid
         task.title = self.title
         task.description = self.description
         task.supposed_start_time = self.supposed_start_time
@@ -156,36 +194,6 @@ class PlanRelationsTableModel(BaseTableModel):
     class Meta:
         table_name = 'plan_relations'
 
-class ProjectTableModel(BaseTableModel):
-    pid = AutoField(primary_key=True)
-    creator = ForeignKeyField(UserTableModel, backref='projects')
-    name = TextField(null=True)
-
-    def to_project(self):
-        project = Project()
-        project.pid = self.pid
-        project.creator = self.creator
-        project.name = self.name
-        return project
-
-    class Meta:
-        table_name = 'project'
-
-class ProjectRelationsTableModel(BaseTableModel):
-    relation_id = AutoField(primary_key=True)
-    pid = ForeignKeyField(ProjectTableModel, backref='project_relations')
-    uid = ForeignKeyField(UserTableModel, backref='project_relations')
-    kind = IntegerField(null=False)
-
-    class Kind():
-        ADMIN = 0
-        GUEST = 1
-
-    class Meta:
-        table_name = 'project'
-
-_DEFAULT_DB_NAME = 'tasktracker.db'
-
 class StorageAdapter():
 
     def __init__(self, db_file=_DEFAULT_DB_NAME):
@@ -209,7 +217,9 @@ class StorageAdapter():
         return True
 
     def _create_db(self):
-        tables = [TaskTableModel, UserTableModel, PlanTableModel, PlanRelationsTableModel]
+        tables = [TaskTableModel, UserTableModel, 
+            PlanTableModel, PlanRelationsTableModel, 
+            ProjectTableModel, ProjectRelationsTableModel]
         self.db.create_tables(tables)
 
     def connect(self):
@@ -252,6 +262,7 @@ class TaskStorageAdapter(StorageAdapter):
         
     def save_task(self, task, auto_tid=True):
         task_to_save = TaskTableModel(uid=task.uid,
+                            pid=task.pid,
                             parent_tid=task.parent_tid,
                             title=task.title, 
                             description=task.description,
@@ -305,6 +316,7 @@ class TaskStorageAdapter(StorageAdapter):
 
     def edit_task_from_model(self, task):
         task_to_edit = TaskTableModel.select().where(TaskTableModel.tid == task.tid)[0]
+        task_to_edit.pid = task.pid
         task_to_edit.uid = task.uid
         task_to_edit.parent_tid = task.parent_tid
         task_to_edit.title = task.title
@@ -342,6 +354,9 @@ class TaskStorageAdapter(StorageAdapter):
 
         def tid(self, tid):
             self._filter.append(TaskTableModel.tid == tid)
+
+        def pid(self, pid):
+            self._filter.append(TaskTableModel.pid == pid)
 
         def parent_tid(self, parent_tid):
             self._filter.append(TaskTableModel.parent_tid == parent_tid)
@@ -668,6 +683,11 @@ class UserStorageAdapter(StorageAdapter):
         
         return rows_modified == 1
 
+    def get_last_saved_user(self):
+        user_model = UserTableModel.select().order_by(UserTableModel.uid.desc()).get()
+        if user_model is not None:
+            return user_model.to_user()
+
     def delete_user(self, uid):
         task_adapter = TaskStorageAdapter(self.db_file)
         filter = TaskStorageAdapter.Filter()
@@ -715,12 +735,12 @@ class ProjectStorageAdapter(StorageAdapter):
     def __init__(self, db_name=None):
         super().__init__(db_name)
 
-    def add_project(self, project):
-        project_model = ProjectTableModel(uid=project.uid, name=project.name)
+    def save_project(self, project):
+        project_model = ProjectTableModel(creator=project.creator, name=project.name)
         rows_modified = project_model.save()
         return rows_modified == 1
 
-    def get_project(self, filter):
+    def get_projects(self, filter=None):
         if filter is None:
             project_table_models = ProjectTableModel.select()
         else:
@@ -737,13 +757,14 @@ class ProjectStorageAdapter(StorageAdapter):
         rows_deleted = ProjectTableModel.delete().where(ProjectTableModel.pid == pid).execute()
         return rows_deleted != 0
 
-    def update_project(self, pid, name=None):
+    def edit_project(self, project_fields_dict):
+        pid = project_fields_dict[Project.Field.pid]
         project_models = ProjectTableModel.select().where(ProjectTableModel.pid == pid)
         if len(project_models) == 0:
             return False
         project_model = project_models[0]
-        if name is not None:
-            project_model.name = name
+        if Project.Field.name in project_fields_dict:
+            project_model.name = project_fields_dict[Project.Field.name]
             rows_modified = project_model.save()
             return rows_modified == 1
 

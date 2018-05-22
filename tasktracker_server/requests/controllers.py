@@ -45,6 +45,15 @@ class InvalidStatusError(TaskTrackerError):
         super().__init__(msg)
         self.status = status
 
+class InvalidProjectIdError(TaskTrackerError):
+
+    def __init__(self, pid, explanation=None):
+        msg = 'Invalid project: {}. '.format(status)
+        if explanation is not None:
+            msg += explanation
+        super().__init__(msg)
+        self.pid = pid    
+
 class UserAlreadyExistsError(TaskTrackerError):
 
     def __init__(self, user_name):
@@ -90,13 +99,15 @@ class Controller():
     def init_storage_adapters(cls, plan_storage_adapter=None,
                               task_storage_adapter=None,
                               user_storage_adapter=None,
-                              _project_storage_adapter=None):
+                              project_storage_adapter=None):
         if plan_storage_adapter is not None:
             cls._plan_storage = plan_storage_adapter()
         if task_storage_adapter is not None:
             cls._task_storage = task_storage_adapter()
         if user_storage_adapter is not None:
             cls._user_storage = user_storage_adapter()
+        if project_storage_adapter is not None:
+            cls._project_storage = project_storage_adapter()
 
     @classmethod
     def authentication(cls, user_id):
@@ -111,10 +122,14 @@ class Controller():
     @staticmethod
     def require_authentication(method):
         def check(*args, **kwargs):
-            if Controller._user_login_id is None:
+            if not Controller.is_authenticated():
                 raise NotAuthenticatedError()
             return method(*args, **kwargs)
         return check
+
+    @classmethod
+    def is_authenticated(cls):
+        return cls._user_login_id != None
 
 class TaskController(Controller):
 
@@ -207,8 +222,12 @@ class TaskController(Controller):
                 msg = 'Parent can not be planned'
                 raise InvalidParentIdError(self.task.parent_tid, msg)
 
-        def validate_status_time_relations(self):
+        def validate_pid(self):
+            projects = ProjectController.fetch_projects(pid=self.task.pid)
+            if projects is None or len(projects) == 0:
+                raise InvalidProjectIdError(self.task.pid)
 
+        def validate_status_time_relations(self):
             if self.force:
                 return
 
@@ -237,6 +256,7 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def save_task(cls,
+                  pid=None,
                   parent_tid=None, 
                   title=None, 
                   description=None, 
@@ -251,6 +271,12 @@ class TaskController(Controller):
 
         if task_id is None:
             task_id = -1
+
+        if pid is None:
+            default_project = ProjectController.get_default_project_for_user(Controller._user_login_id)
+            if default_project is None:
+                return False
+            pid = default_project.pid
 
         if status is None:
             status = Status.PENDING
@@ -275,6 +301,7 @@ class TaskController(Controller):
         task = Task()
         if task_id >= 0:
             task.tid = task_id
+        task.pid = pid
         task.uid = cls._user_login_id
         task.title = title
         task.parent_tid = parent_tid
@@ -345,7 +372,7 @@ class TaskController(Controller):
 
     @classmethod
     @Controller.require_authentication
-    def fetch_tasks(cls, parent_tid=None, tid=None, title=None, description=None,
+    def fetch_tasks(cls, pid=None, parent_tid=None, tid=None, title=None, description=None,
                         priority=None, status=None, notificate_supposed_start=None, 
                         notificate_supposed_end=None, notificate_deadline=None, 
                         time_range=None, timeless=None):
@@ -358,6 +385,8 @@ class TaskController(Controller):
         filter.uid(cls._user_login_id)
         if tid is not None:
             filter.tid(tid)
+        if pid is not None:
+            filter.pid(pid)
         if parent_tid is not None:
             filter.parent_tid(parent_tid)
         if title is not None:
@@ -475,7 +504,8 @@ class TaskController(Controller):
 
     @classmethod
     @Controller.require_authentication
-    def edit_task(cls, task_id, parent_tid=Controller._not_edit_field_flag, 
+    def edit_task(cls, task_id, pid=Controller._not_edit_field_flag,
+                  parent_tid=Controller._not_edit_field_flag, 
                   title=Controller._not_edit_field_flag, 
                   description=Controller._not_edit_field_flag,
                   supposed_start_time=Controller._not_edit_field_flag, 
@@ -518,6 +548,13 @@ class TaskController(Controller):
         filter.parent_tid(task_id)
         childer = cls._task_storage.get_tasks(filter)
 
+        if pid is not Controller._not_edit_field_flag:
+            if pid is None:
+                default_project = ProjectController.get_default_project_for_user(Controller._user_login_id)
+                if default_project is None:
+                    return False
+                pid = default_project.pid
+            task.pid = pid
         if parent_tid is not Controller._not_edit_field_flag:
             task.parent_tid = parent_tid
         if title is not Controller._not_edit_field_flag:
@@ -567,8 +604,13 @@ class UserController(Controller):
 
         exists = cls._user_storage.check_user_existence(login)
         if not exists:
-            ProjectCon
             success = cls._user_storage.save_user(user)
+
+            project = Project()
+            project.creator = cls._user_storage.get_last_saved_user().uid
+            project.name = Project.default_project_name
+            cls._project_storage.save_project(project)
+
             return success
         else:
             raise UserAlreadyExistsError(login)
@@ -588,6 +630,7 @@ class UserController(Controller):
 
     @classmethod
     def delete_user(cls, user_id):
+        # TODO: remove projects of user
         success = cls._user_storage.delete_user(user_id)
         return success
 
@@ -884,7 +927,68 @@ class PlanController(Controller):
 
 class ProjectController(Controller):
 
-    def add_project(name):
+    @classmethod
+    @Controller.require_authentication
+    def save_project(cls, name):
+        exist_projects = cls.fetch_projects(name=name)
+        if exist_projects is not None and len(exist_projects) != 0:
+            return False
+
+        project = Project()
+        project.creator = cls._user_login_id
+        project.name = name
+        success = cls._project_storage.save_project(project)
+        return success
+
+    @classmethod
+    @Controller.require_authentication
+    def get_default_project_for_user(cls, uid):
+        projects = cls.fetch_projects()
+        for project in projects:
+            if project.name == Project.default_project_name:
+                return project
+        return None
+
+    @classmethod
+    @Controller.require_authentication
+    def fetch_projects(cls, pid=None, name=None):
+        filter = ProjectStorageAdapter.Filter()
+        filter.creator(cls._user_login_id)
+        if pid is not None:
+            filter.pid(pid)
+        if name is not None:
+            filter.name(name)
+
+        projects = cls._project_storage.get_projects(filter)
+        return projects
+
+    @classmethod
+    @Controller.require_authentication
+    def remove_project(cls, pid):
+        default_project = cls.get_default_project_for_user(Controller._user_login_id)
+        if default_project is not None and default_project.pid == pid:
+            return False
+
+        tasks = TaskController.fetch_tasks(pid=pid)
+        if tasks is not None:
+            for task in tasks:
+                TaskController.remove_task(task.tid)
+        
+        success = cls._project_storage.remove_project(pid)
+        return success
+
+    @classmethod
+    @Controller.require_authentication
+    def edit_project(cls, pid, name=Controller._not_edit_field_flag):
+        default_project = cls.get_default_project_for_user(Controller._user_login_id)
+        if default_project is not None and default_project.pid == pid:
+            return False
+
+        args = {Project.Field.pid: pid}
+        if name is not Controller._not_edit_field_flag:
+            args[Project.Field.name] = name
+        success = cls._project_storage.edit_project(args)
+        return success
 
 
 def timestamp_to_display(timestamp):

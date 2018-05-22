@@ -1,9 +1,9 @@
 from .model.task import Task, Priority, Status
-from .requests.controllers import TaskController, PlanController
+from .requests.controllers import TaskController, PlanController, ProjectController
 import datetime
 
 def show_tasks_in_console(tasks, shift=0):
-    data = [[str(task.tid), str(task.parent_tid), task.title, task.description, 
+    data = [[str(task.tid), str(task.pid), str(task.parent_tid), task.title, task.description, 
             timestamp_to_display(task.supposed_start_time), 
             timestamp_to_display(task.supposed_end_time),
             timestamp_to_display(task.deadline_time),
@@ -12,10 +12,17 @@ def show_tasks_in_console(tasks, shift=0):
             task.notificate_supposed_start,
             task.notificate_supposed_end,
             task.notificate_deadline] for task in tasks]
-    data.insert(0, ['TID', 'PARENT', 'TITLE', 'DESCRIPTION', 'SUPPOSED_START', 'SUPPOSED_END', 'DEADLINE',
+    data.insert(0, ['TID', 'PID', 'PARENT', 'TITLE', 'DESCRIPTION', 'SUPPOSED_START', 'SUPPOSED_END', 'DEADLINE',
                     'PRIORITY', 'STATUS', 'NOTIFICATE START', 'NOTIFICATE END', 'NOTIFICATE DEADLINE', 
                     'PLANNED (plan id)', 'EDIT PLANS (plan id)', 'NUMBER IN PLANS'])
     
+    for i in range(len(tasks)):
+        task = tasks[i]
+        projects = ProjectController.fetch_projects(pid=task.pid)
+        if projects is not None and len(projects) != 0:
+            projects_str = ','.join([project.name for project in projects])
+            data[i+1][1] += '({})'.format(projects_str)
+
     plan_controller = PlanController()
     for i in range(len(tasks)):
         task = tasks[i]
@@ -77,6 +84,11 @@ def show_notifications_in_console(tasks):
         else:
             data[i+1].append(str(None))
 
+    print_in_groups(data, 0)
+
+def show_projects(projects):
+    data = [[str(project.pid), project.name] for project in projects]
+    data.insert(0, ['PID', 'NAME'])
     print_in_groups(data, 0)
 
 def show_overdue_in_console(tasks):
