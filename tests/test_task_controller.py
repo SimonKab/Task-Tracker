@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from tasktracker_server.requests.controllers import TaskController, Controller
+from tasktracker_server.requests.controllers import TaskController, Controller, InvalidParentId
 from tasktracker_server.model.task import Task, Status, Priority
 from tasktracker_server.model.plan import Plan
 from tasktracker_server import utils
@@ -11,6 +11,27 @@ class TestTaskController(unittest.TestCase):
     def setUp(self):
         self.controller = TaskController()
 
+    def test_save_invalide_task_parent_id(self):
+
+        class TaskStorageAdapterMock():
+            
+            class Filter():
+
+                def tid(self, tid):
+                    pass
+
+            def get_tasks(self, filter):
+                return []
+
+            def save_task(self, task):
+                pass
+
+        Controller.init_storage_adapters(task_storage_adapter=TaskStorageAdapterMock)
+
+        with self.assertRaises(InvalidParentId):
+            TaskController.save_task(uid=None, parent_tid=3)
+
+
     def test_get_plan_tasks_by_time_range(self):
 
         class PlanStorageAdapterMock():
@@ -19,7 +40,7 @@ class TestTaskController(unittest.TestCase):
                 plan = Plan()
                 plan.tid = 1
                 plan.plan_id = 1
-                plan.shift = utils.create_shift_in_millis(datetime.timedelta(days=3))
+                plan.shift = 3000
                 plan.exclude = [5]
                 return [plan]
 
@@ -33,27 +54,26 @@ class TestTaskController(unittest.TestCase):
             def get_tasks(self, filter):
                 task = Task()
                 task.tid = 1
-                task.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
-                task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=2))
+                task.supposed_start_time = 0
+                task.supposed_end_time = 2000
                 return [task]
 
         Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
 
-        time_range = (utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=10)),
-                      utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=17)))
+        time_range = (10000, 17000)
         tasks = self.controller.get_plan_tasks_by_time_range(1, time_range)
         self.assertEqual(len(tasks), 2)
 
         task1 = Task()
         task1.tid = 1
-        task1.supposed_start_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=9))
-        task1.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=11))
+        task1.supposed_start_time = 9000
+        task1.supposed_end_time = 11000
 
-        self.assertEqual(task1, tasks[0])
+        self.assertEqual(task1.__dict__, tasks[0].__dict__)
 
         task2 = Task()
         task2.tid = 1
-        task2.supposed_start_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=12))
-        task2.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=14))
+        task2.supposed_start_time = 12000
+        task2.supposed_end_time = 14000
 
         self.assertEqual(task2, tasks[1])

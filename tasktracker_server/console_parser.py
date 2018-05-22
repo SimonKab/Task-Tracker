@@ -1,7 +1,7 @@
 from . import console_response
-from .requests.controllers import TaskController, UserController, PlanController
-from .requests.controllers import InvalidTimeError, InvalidParentId
-from .requests.controllers import UserAlreadyExistsError, UserNotExistsError
+from .requests.controllers import Controller, TaskController, UserController, PlanController
+from .requests.controllers import InvalidTimeError, InvalidParentIdError, TaskTrackerError
+from .requests.controllers import UserAlreadyExistsError, UserNotExistsError, NotAuthenticatedError
 from . import utils
 import argparse
 import datetime
@@ -35,6 +35,8 @@ class Parser:
     TASK_NOT_NOTIFICATE_DEADLINE = 'notificate_deadline'
     TASK_TIME = 'time'
     TASK_DELETE = 'delete'
+
+    FORCE = 'force'
 
     PLAN = 'plan'
     PLAN_ID = 'plan_id'
@@ -70,8 +72,30 @@ class Parser:
 
         return Parser._with_prefix
 
+def write_current_login(login):
+    with open('login', 'w') as file:
+      file.write(login)
+
+def read_current_login():
+    try:
+        open('login', 'r').close()
+    except FileNotFoundError:
+        open('login', 'w').close()
+
+    with open('login', 'r') as file:
+      login = file.readline()
+
+    return login
 
 def parse():
+    login = read_current_login()
+    if login is not None and len(login) != 0:
+        users = UserController.fetch_user(login=login)
+        if users is not None and len(users) != 0:
+            Controller.authentication(users[0].uid)
+
+    TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+
     parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX,
                                      description="Hello) It's task tracker")
     root_subparsers = parser.add_subparsers(dest=Parser.ACTION)
@@ -80,13 +104,14 @@ def parse():
     init_overall_task_parser(root_subparsers)
     init_user_parser(root_subparsers)
     init_login_parser(root_subparsers)
-    init_logout_parser(root_subparsers)
 
     parsed = parser.parse_args()
     check_is_parsed_valid(parsed)
 
-    proccess_parsed(parsed)
-
+    try:
+        proccess_parsed(parsed)
+    except NotAuthenticatedError as error:
+        console_response.show_common_error(error)
 
 def check_is_parsed_valid(parsed):
     check_is_delete_list_valid(parsed)
@@ -136,7 +161,7 @@ def time_arg(arg):
         if relative_date is not None:
             sign = relative_date.group(2)
             shift = relative_date.group(3)
-            today = datetime.datetime.today()
+            today = utils.today()
             if sign == '+':
                 return today + datetime.timedelta(days=int(shift))
             elif sign == '-':
@@ -290,6 +315,7 @@ def init_task_parser(root):
                                   action='store_true')
     edit_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_DEADLINE,
                                   action='store_true')
+    edit_task_parser.add_argument(Parser.prefix().FORCE, action='store_true')
     edit_task_parser.add_argument(Parser.prefix().DELETE,
                                   type=delete_arg, nargs='+')
 
@@ -400,12 +426,6 @@ def init_login_parser(root):
     login_parser = root.add_parser(Parser.LOGIN)
     login_parser.add_argument(Parser.LOGIN, type=str)
 
-
-def init_logout_parser(root):
-    logout_parser = root.add_parser(Parser.LOGOUT)
-    logout_parser.add_argument(Parser.LOGOUT, action='store_true')
-
-
 def proccess_parsed(parsed):
     if parsed.action == Parser.TASK:
         proccess_task(parsed)
@@ -413,8 +433,6 @@ def proccess_parsed(parsed):
         proccess_user(parsed)
     if parsed.action == Parser.LOGIN:
         proccess_login(parsed)
-    if parsed.action == Parser.LOGOUT:
-        proccess_logout(parsed)
     if parsed.action == Parser.OVERALL_TASK:
         proccess_overall_task(parsed)
 
@@ -431,7 +449,7 @@ def proccess_task(parsed):
     if parsed.task == Parser.PLAN:
         proccess_plan(parsed)
     if parsed.task is None:
-        proccess_task_show(parsed)
+        proccess_task_show_common(parsed)
 
 def proccess_plan(parsed):
     if parsed.plan == Parser.ADD:
@@ -469,7 +487,7 @@ def proccess_task_add(parsed):
     deadline_time_millis = utils.datetime_to_milliseconds(deadline_time)
 
     try:
-        success = TaskController.save_task(None, parent, title, description,
+        success = TaskController.save_task(parent, title, description,
                                            start_time_millis, end_time_millis, deadline_time_millis, priority,
                                            status, notificate_start, notificate_end, notificate_deadline, tid)
         if success:
@@ -478,8 +496,8 @@ def proccess_task_add(parsed):
             console_response.show_common_error('Task was not added')
     except InvalidTimeError as error:
         console_response.show_invalid_time_range_error(error.start, error.end)
-    except InvalidParentId as error:
-        console_response.show_invalid_parent_id_error(error.parent_tid)
+    except TaskTrackerError as error:
+        console_response.show_common_error(error)
 
 def proccess_plan_add(parsed):
     tid = getattr(parsed, Parser.PLAN_TID, None)
@@ -536,8 +554,12 @@ def proccess_plan_edit(parsed):
     shift_time_millis = utils.datetime_to_milliseconds(shift)
 
     success = True
-    if end_time_millis is not None or shift_time_millis is not None:
-        success = PlanController.edit_plan(plan_id, end=end_time_millis, shift=shift_time_millis)
+
+    if shift_time_millis is not None:
+        success = PlanController.edit_plan(plan_id, shift=shift_time_millis)
+
+    if end_time_millis is not None:
+        success = PlanController.edit_plan(plan_id, end=end_time_millis)
 
     if exclude is not None:
         for exclude_datetime in exclude:
@@ -547,7 +569,7 @@ def proccess_plan_edit(parsed):
     if delete is not None:
         for to_delete in delete:
             if to_delete == Parser.PLAN_END:
-                success = PlanController.edit_plan(plan_id, end=end)
+                success = PlanController.edit_plan(plan_id, end=None)
             if to_delete == Parser.PLAN_EXCLUDE:
                 success = PlanController.restore_all_repeats(plan_id)
 
@@ -608,6 +630,25 @@ def proccess_repeat_edit(parsed):
     else:
         console_response.show_common_error('Repeat was not edited')
 
+def proccess_task_show_common(parsed):
+    now = utils.datetime_to_milliseconds(utils.now())
+    
+    tasks = TaskController.get_task_with_notifications_to_time(now)
+    if tasks is not None and len(tasks) != 0:
+        console_response.show_notifications_in_console(tasks)
+
+    tasks = TaskController.get_overdue_tasks(now)
+    if tasks is not None and len(tasks) != 0:
+        console_response.show_overdue_in_console(tasks)
+
+    time_range = (utils.datetime_to_milliseconds(utils.today()), 
+                  utils.shift_datetime_in_millis(utils.today(), datetime.timedelta(days=1)))
+    tasks = TaskController.fetch_tasks(time_range=time_range)
+    if tasks is not None and len(tasks) != 0:
+        console_response.show_tasks_like_tree_in_console(tasks)
+    tasks = TaskController.fetch_tasks(timeless=True)
+    if tasks is not None and len(tasks) != 0:
+        console_response.show_tasks_like_tree_in_console(tasks)
 
 def proccess_task_show(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
@@ -652,7 +693,7 @@ def proccess_task_show(parsed):
         time_range = (utils.datetime_to_milliseconds(time_to_show[0]),
                       utils.datetime_to_milliseconds(time_to_show[1]))
 
-    tasks = TaskController.fetch_tasks(uid=None, parent_tid=parent,
+    tasks = TaskController.fetch_tasks(parent_tid=parent,
                                        tid=tid, title=title, description=descr,
                                        priority=priority, status=status,
                                        notificate_supposed_start=notificate_supposed_start,
@@ -698,6 +739,8 @@ def proccess_task_edit(parsed):
     not_notificate_end = getattr(parsed, Parser.TASK_NOT_NOTIFICATE_END, None)
     not_notificate_deadline = getattr(
         parsed, Parser.TASK_NOT_NOTIFICATE_DEADLINE, None)
+
+    force = getattr(parsed, Parser.FORCE, None)
 
     args = {}
     if title is not None:
@@ -755,15 +798,15 @@ def proccess_task_edit(parsed):
                 args['notificate_deadline'] = False
 
     try:
-        success = TaskController.edit_task(int(tid), **args)
+        success = TaskController.edit_task(int(tid), **args, force=force)
         if success:
             console_response.show_common_ok()
         else:
             console_response.show_common_error('Task was not edited')
     except InvalidTimeError as error:
         console_response.show_invalid_time_range_error(error.start, error.end)
-    except InvalidParentId as error:
-        console_response.show_invalid_parent_id_error(error.parent_tid)
+    except TaskTrackerError as error:
+        console_response.show_common_error(error)
 
 
 def proccess_overall_task(parsed):
@@ -859,33 +902,8 @@ def proccess_user_edit(parsed):
 
 def proccess_login(parsed):
     login = getattr(parsed, Parser.LOGIN, None)
-    try:
-        users_online = UserController.fetch_user(online=True)
-        if len(users_online) != 0:
-            console_response.show_already_login(users_online[0].login)
-            return
-
-        success = UserController.login_user(login)
-        if success:
-            console_response.show_welcome(login)
-        else:
-            console_response.show_common_error()
-    except UserNotExistsError as error:
-        print(error)
-
-
-def proccess_logout(parsed):
-    try:
-        users_online = UserController.fetch_user(online=True)
-        if len(users_online) == 0:
-            console_response.show_noone_login()
-            return
-
-        login = users_online[0].login
-        success = UserController.logout_user(login)
-        if success:
-            console_response.show_good_bye(login)
-        else:
-            console_response.show_common_error()
-    except UserNotExistsError as error:
-        print(error)
+    users = UserController.fetch_user(login=login)
+    if users is not None and len(users) != 0:
+        write_current_login(login)
+    else:
+        console_response.show_common_error('User {} not exists'.format(login))

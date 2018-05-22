@@ -1,6 +1,7 @@
-from ..model.task import Task
+from ..model.task import Task, Status
 from ..model.user import User
 from ..model.plan import Plan
+from ..model.project import Project
 import os
 from itertools import filterfalse
 from peewee import *
@@ -155,6 +156,34 @@ class PlanRelationsTableModel(BaseTableModel):
     class Meta:
         table_name = 'plan_relations'
 
+class ProjectTableModel(BaseTableModel):
+    pid = AutoField(primary_key=True)
+    creator = ForeignKeyField(UserTableModel, backref='projects')
+    name = TextField(null=True)
+
+    def to_project(self):
+        project = Project()
+        project.pid = self.pid
+        project.creator = self.creator
+        project.name = self.name
+        return project
+
+    class Meta:
+        table_name = 'project'
+
+class ProjectRelationsTableModel(BaseTableModel):
+    relation_id = AutoField(primary_key=True)
+    pid = ForeignKeyField(ProjectTableModel, backref='project_relations')
+    uid = ForeignKeyField(UserTableModel, backref='project_relations')
+    kind = IntegerField(null=False)
+
+    class Kind():
+        ADMIN = 0
+        GUEST = 1
+
+    class Meta:
+        table_name = 'project'
+
 _DEFAULT_DB_NAME = 'tasktracker.db'
 
 class StorageAdapter():
@@ -274,11 +303,30 @@ class TaskStorageAdapter(StorageAdapter):
 
         return True
 
-    def edit_task(self, task_field_dict):
-        self._raise_if_disconnected()
+    def edit_task_from_model(self, task):
+        task_to_edit = TaskTableModel.select().where(TaskTableModel.tid == task.tid)[0]
+        task_to_edit.uid = task.uid
+        task_to_edit.parent_tid = task.parent_tid
+        task_to_edit.title = task.title
+        task_to_edit.description = task.description
+        task_to_edit.supposed_start_time = task.supposed_start_time
+        task_to_edit.supposed_end_time = task.supposed_end_time
+        task_to_edit.deadline_time = task.deadline_time
+        task_to_edit.priority = task.priority
+        task_to_edit.status = task.status
+        task_to_edit.notificate_supposed_start = task.notificate_supposed_start
+        task_to_edit.notificate_supposed_end = task.notificate_supposed_end
+        task_to_edit.notificate_deadline = task.notificate_deadline
+        
+        rows_modified = task_to_edit.save()
+        return rows_modified == 1
 
+    def edit_task(self, task_field_dict):
         tid = task_field_dict[Task.Field.tid]
-        task_to_edit = TaskTableModel.select().where(TaskTableModel.tid == tid)[0]
+        tasks_to_edit = TaskTableModel.select().where(TaskTableModel.tid == tid)
+        if len(tasks_to_edit) == 0:
+            return False
+        task_to_edit = tasks_to_edit[0]
         for field, value in task_field_dict.items():
             if field == Task.Field.tid:
                 continue
@@ -322,16 +370,53 @@ class TaskStorageAdapter(StorageAdapter):
         def notificate_deadline(self, notificate_deadline):
             self._filter.append(TaskTableModel.notificate_deadline == notificate_deadline)
 
+        def one_of_notificate(self):
+            self._filter.append((TaskTableModel.notificate_supposed_start == True)
+                                | (TaskTableModel.notificate_supposed_end == True)
+                                | (TaskTableModel.notificate_deadline == True))
+
+        def to_time(self, time):
+            self._filter.append((TaskTableModel.supposed_end_time < time)
+                                | (TaskTableModel.supposed_start_time < time)
+                                | (TaskTableModel.deadline_time < time))
+
+        def not_completed(self):
+            self._filter.append((TaskTableModel.status == Status.ACTIVE)
+                                | (TaskTableModel.status == Status.PENDING)
+                                | (TaskTableModel.status == Status.OVERDUE))
+
         def plan_tid(self, plan_tid):
             self._filter.append(TaskTableModel.plan_tid == plan_tid)
 
+        def overdue_by_time(self, time):
+            start_before = (~(TaskTableModel.supposed_start_time >> None)
+                                & (TaskTableModel.supposed_start_time < time))
+            end_before = (~(TaskTableModel.supposed_end_time >> None)
+                                & (TaskTableModel.supposed_end_time < time))
+            deadline_before = (~(TaskTableModel.deadline_time >> None)
+                                & (TaskTableModel.deadline_time < time))
+            only_end = (TaskTableModel.supposed_start_time >> None)
+            self._filter.append((only_end & (end_before | deadline_before))
+                                | (start_before & (end_before | deadline_before)))
+
         def filter_range(self, start_time, end_time):
-            self._filter.append(((TaskTableModel.supposed_end_time > start_time)
-                                | (TaskTableModel.supposed_start_time > start_time)
-                                | (TaskTableModel.deadline_time > start_time))
-                                & ((TaskTableModel.supposed_end_time < end_time)
-                                | (TaskTableModel.supposed_start_time < end_time)
-                                | (TaskTableModel.deadline_time < end_time)))
+            start_before_end = (~(TaskTableModel.supposed_start_time >> None)
+                                & (TaskTableModel.supposed_start_time <= end_time))
+            end_after_start = (~(TaskTableModel.supposed_end_time >> None)
+                                & (TaskTableModel.supposed_end_time >= start_time))
+            deadline_after_start = (~(TaskTableModel.deadline_time >> None)
+                                & (TaskTableModel.deadline_time >= start_time))
+            only_start = ((TaskTableModel.supposed_end_time >> None) 
+                            & (TaskTableModel.deadline_time >> None))
+            only_end = (TaskTableModel.supposed_start_time >> None)
+            self._filter.append((only_start & start_before_end)
+                                | (only_end & (end_after_start | deadline_after_start))
+                                | (start_before_end & (end_after_start | deadline_after_start)))
+
+        def timeless(self):
+            self._filter.append((TaskTableModel.supposed_end_time == None)
+                                & (TaskTableModel.supposed_start_time == None)
+                                & (TaskTableModel.deadline_time == None))
 
         def to_peewee_conditions(self):
             return self._filter
@@ -515,8 +600,11 @@ class PlanStorageAdapter(StorageAdapter):
         PlanRelationsTableModel.delete().where(PlanRelationsTableModel.plan_id == plan_id).execute()
         return rows_deleted == 1
 
-    def edit_plan(self, plan_id, end=None, shift=None):
-        if end is not None:
+    def edit_plan(self, plan_field_dict):
+        plan_id = plan_field_dict[Plan.Field.plan_id]
+
+        if Plan.Field.end in plan_field_dict:
+            end = plan_field_dict[Plan.Field.end]
             plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
             for plan_model in plan_models:
                 plan_model.end = end
@@ -524,7 +612,8 @@ class PlanStorageAdapter(StorageAdapter):
                 if rows_modified != 1:
                     return False
 
-        if shift is not None:
+        if Plan.Field.shift in plan_field_dict:
+            shift = plan_field_dict[Plan.Field.shift]
             plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
             for plan_model in plan_models:
                 old_shift = plan_model.shift
@@ -555,14 +644,10 @@ class UserStorageAdapter(StorageAdapter):
         super().__init__(db_name)
 
     def check_user_existence(self, login):
-        self._raise_if_disconnected()
-
         count = len(UserTableModel.select().where(UserTableModel.login == login))
         return count != 0
 
     def get_users(self, filter=None):
-        self._raise_if_disconnected()
-
         if filter is None:
             user_table_models = UserTableModel.select()
         else:
@@ -576,8 +661,6 @@ class UserStorageAdapter(StorageAdapter):
         return users
 
     def save_user(self, user):
-        self._raise_if_disconnected()
-
         user_to_save = UserTableModel(login=user.login,
                             password=user.password,
                             online=user.online)
@@ -597,10 +680,11 @@ class UserStorageAdapter(StorageAdapter):
         return rows_deleted == 1
 
     def edit_user(self, user_field_dict):
-        self._raise_if_disconnected()
-
         uid = user_field_dict[User.Field.uid]
-        user_to_edit = UserTableModel.select().where(UserTableModel.uid == uid)[0]
+        users_to_edit = UserTableModel.select().where(UserTableModel.uid == uid)
+        if len(users_to_edit) == 0:
+            return False
+        user_to_edit = users_to_edit[0]
         for field, value in user_field_dict.items():
             if field == Task.Field.uid:
                 continue
@@ -622,6 +706,62 @@ class UserStorageAdapter(StorageAdapter):
 
         def online(self, online):
             self._filter.append(UserTableModel.online == online)
+
+        def to_peewee_conditions(self):
+            return self._filter
+
+class ProjectStorageAdapter(StorageAdapter):
+
+    def __init__(self, db_name=None):
+        super().__init__(db_name)
+
+    def add_project(self, project):
+        project_model = ProjectTableModel(uid=project.uid, name=project.name)
+        rows_modified = project_model.save()
+        return rows_modified == 1
+
+    def get_project(self, filter):
+        if filter is None:
+            project_table_models = ProjectTableModel.select()
+        else:
+            conditions = filter.to_peewee_conditions()
+            if conditions is None or len(conditions) == 0:
+                project_table_models = ProjectTableModel.select()
+            else:
+                project_table_models = ProjectTableModel.select().where(*conditions)
+
+        projects = [project_model.to_project() for project_model in project_table_models]
+        return projects
+
+    def remove_project(self, pid):
+        rows_deleted = ProjectTableModel.delete().where(ProjectTableModel.pid == pid).execute()
+        return rows_deleted != 0
+
+    def update_project(self, pid, name=None):
+        project_models = ProjectTableModel.select().where(ProjectTableModel.pid == pid)
+        if len(project_models) == 0:
+            return False
+        project_model = project_models[0]
+        if name is not None:
+            project_model.name = name
+            rows_modified = project_model.save()
+            return rows_modified == 1
+
+        return True
+
+    class Filter():
+
+        def __init__(self):
+            self._filter = []
+
+        def pid(self, pid):
+            self._filter.append(ProjectTableModel.pid == pid)
+
+        def name(self, name):
+            self._filter.append(ProjectTableModel.name == name)
+
+        def creator(self, uid):
+            self._filter.append(ProjectTableModel.creator == uid)
 
         def to_peewee_conditions(self):
             return self._filter

@@ -24,20 +24,49 @@ class Task():
         self.relation_tid_list = None
         self.plan_tid = None
 
+    def only_start(self):
+        return (self.supposed_start_time is not None
+            and self.supposed_end_time is None
+            and self.deadline_time is None)
+
+    def only_end(self):
+        return (self.supposed_start_time is None
+            and (self.supposed_end_time is not None
+            or self.deadline_time is not None))
+
     def get_time_interval(self):
+        range = self.get_time_range()
+        if len(range) != 2:
+            return 0
+
+        return range[1] - range[0]
+
+    def get_left_border(self):
+        if self.supposed_start_time is not None:
+            return self.supposed_start_time
+        if self.supposed_end_time is not None:
+            return self.supposed_end_time
+        if self.deadline_time is not None:
+            return self.deadline_time
+
+    def get_time_range(self):
         left_border = None
         right_border = None
-        if notificate_supposed_end is not None:
-            right_border = notificate_supposed_end
-        if notificate_deadline is not None:
-            right_border = notificate_deadline
-        if notificate_supposed_start is not None:
-            left_border = notificate_supposed_start
+        if self.supposed_end_time is not None:
+            right_border = self.supposed_end_time
+        if self.deadline_time is not None:
+            right_border = self.deadline_time
+        if self.supposed_start_time is not None:
+            left_border = self.supposed_start_time
         
-        if left_border is None or right_border is None:
-            return 0
-        else:
-            return right_border - left_border
+        if left_border is None and right_border is None:
+            return []
+        if left_border is not None and right_border is not None:
+            return (left_border, right_border)
+        if left_border is None:
+            return (right_border, )
+        if right_border is None:
+            return (left_border, )
 
     def shift_time(self, shift):
         if self.supposed_start_time is not None:
@@ -52,36 +81,61 @@ class Task():
             and not self.is_before_time(time_range))
 
     def is_time_overlap_fully(self, time_range):
-        if len(time_range) == 1:
+        if len(time_range) != 2:
             return False
 
         return (not self.is_after_time((time_range[0], ))
             and not self.is_before_time((time_range[1], )))
 
-    def is_after_time(self, time_range):
+    def is_task_inside_of_range(self, time_range):
+        if len(time_range) != 2:
+            return False
+
+        return (self.is_after_time((time_range[1], ), True)
+            and self.is_before_time((time_range[0], ), True))
+
+    def is_after_time(self, time_range, not_strong=False):
+        if len(time_range) == 0:
+            return False
+
         start_time = time_range[0]
         if len(time_range) == 1:
             end_time = start_time
         else:
             end_time = time_range[1]
 
-        after_start = self._compare_time(start_time, 
-            lambda to_compare, with_compare: to_compare > with_compare)
-        after_end = self._compare_time(end_time, 
-            lambda to_compare, with_compare: to_compare > with_compare)
+        if not_strong:
+            after_start = self._compare_time(start_time, 
+                lambda to_compare, with_compare: to_compare >= with_compare)
+            after_end = self._compare_time(end_time, 
+                lambda to_compare, with_compare: to_compare >= with_compare)
+        else:
+            after_start = self._compare_time(start_time, 
+                lambda to_compare, with_compare: to_compare > with_compare)
+            after_end = self._compare_time(end_time, 
+                lambda to_compare, with_compare: to_compare > with_compare)
         return after_start and after_end
 
-    def is_before_time(self, time_range):
+    def is_before_time(self, time_range, not_strong=False):
+        if len(time_range) == 0:
+            return False
+
         start_time = time_range[0]
         if len(time_range) == 1:
             end_time = start_time
         else:
             end_time = time_range[1]
 
-        before_start = self._compare_time(start_time, 
-            lambda to_compare, with_compare: to_compare < with_compare)
-        before_end = self._compare_time(end_time, 
-            lambda to_compare, with_compare: to_compare < with_compare)
+        if not_strong:
+            before_start = self._compare_time(start_time, 
+                lambda to_compare, with_compare: to_compare <= with_compare)
+            before_end = self._compare_time(end_time, 
+                lambda to_compare, with_compare: to_compare <= with_compare)
+        else:
+            before_start = self._compare_time(start_time, 
+                lambda to_compare, with_compare: to_compare < with_compare)
+            before_end = self._compare_time(end_time, 
+                lambda to_compare, with_compare: to_compare < with_compare)
         return before_start and before_end
 
     def _compare_time(self, time, comparator):

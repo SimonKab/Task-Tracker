@@ -19,3 +19,9 @@ def get_time_range_of_day(datetime_inst):
     start_day = datetime.datetime(datetime_inst.year, datetime_inst.month, datetime_inst.day)
     end_day = start_day + datetime.timedelta(days=1)
     return (start_day, end_day)
+
+def today():
+    return datetime.datetime.combine(datetime.date.today(), datetime.datetime.min.time())
+
+def now():
+    return datetime.datetime.now()

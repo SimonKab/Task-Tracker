@@ -46,6 +46,72 @@ def show_tasks_in_console(tasks, shift=0):
         
     print_in_groups(data, shift)
 
+def show_notifications_in_console(tasks):
+    print('///////////////////////////////////////////')
+    print('\t\tNOTIFICATIONS')
+    print('///////////////////////////////////////////')
+    print('')
+
+    data = [[str(task.tid), task.title, task.description, 
+            timestamp_to_display(task.supposed_start_time), 
+            timestamp_to_display(task.supposed_end_time),
+            timestamp_to_display(task.deadline_time)] for task in tasks]
+    data.insert(0, ['TID', 'TITLE', 'DESCRIPTION', 'SUPPOSED_START', 'SUPPOSED_END', 'DEADLINE', 'NUMBER IN PLANS'])
+
+    plan_controller = PlanController()
+    for i in range(len(tasks)):
+        task = tasks[i]
+
+        plans = plan_controller.get_plan_for_common_task(task.tid)
+        edited_plans = plan_controller.get_plan_for_edit_repeat_task(task.tid)
+
+        all_plans = plans + edited_plans
+        if len(all_plans) > 0:
+            repeats = []
+            for plan in all_plans:
+                repeat = plan_controller.get_repeat_number_for_task(plan.plan_id, task)
+                if repeat is not None:
+                    repeats.append(str(repeat))
+            numbers = ','.join(repeats)
+            data[i+1].append(numbers)
+        else:
+            data[i+1].append(str(None))
+
+    print_in_groups(data, 0)
+
+def show_overdue_in_console(tasks):
+    print('///////////////////////////////////////////')
+    print('\t\tOVERDUE')
+    print('///////////////////////////////////////////')
+    print('')
+
+    data = [[str(task.tid), task.title, task.description, 
+            timestamp_to_display(task.supposed_start_time), 
+            timestamp_to_display(task.supposed_end_time),
+            timestamp_to_display(task.deadline_time)] for task in tasks]
+    data.insert(0, ['TID', 'TITLE', 'DESCRIPTION', 'SUPPOSED_START', 'SUPPOSED_END', 'DEADLINE', 'NUMBER IN PLANS'])
+
+    plan_controller = PlanController()
+    for i in range(len(tasks)):
+        task = tasks[i]
+
+        plans = plan_controller.get_plan_for_common_task(task.tid)
+        edited_plans = plan_controller.get_plan_for_edit_repeat_task(task.tid)
+
+        all_plans = plans + edited_plans
+        if len(all_plans) > 0:
+            repeats = []
+            for plan in all_plans:
+                repeat = plan_controller.get_repeat_number_for_task(plan.plan_id, task)
+                if repeat is not None:
+                    repeats.append(str(repeat))
+            numbers = ','.join(repeats)
+            data[i+1].append(numbers)
+        else:
+            data[i+1].append(str(None))
+
+    print_in_groups(data, 0)
+
 def show_plan_in_console(plans):
     data = [[str(plan.plan_id), str(plan.tid), 
             shift_to_display(plan.shift),
