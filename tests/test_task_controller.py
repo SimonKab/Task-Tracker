@@ -1,9 +1,10 @@
 import unittest
 import datetime
 
-from tasktracker_server.requests.controllers import TaskController, Controller, InvalidParentId
+from tasktracker_server.requests.controllers import TaskController, Controller, InvalidParentIdError
 from tasktracker_server.model.task import Task, Status, Priority
 from tasktracker_server.model.plan import Plan
+from tasktracker_server.model.user import User
 from tasktracker_server import utils
 
 class TestTaskController(unittest.TestCase):
@@ -26,10 +27,18 @@ class TestTaskController(unittest.TestCase):
             def save_task(self, task):
                 pass
 
-        Controller.init_storage_adapters(task_storage_adapter=TaskStorageAdapterMock)
+        class UserStorageAdapterMock():
 
-        with self.assertRaises(InvalidParentId):
-            TaskController.save_task(uid=None, parent_tid=3)
+            def get_users(self, uid):
+                user = User()
+                return [user]
+
+        Controller.init_storage_adapters(task_storage_adapter=TaskStorageAdapterMock,
+                                         user_storage_adapter=UserStorageAdapterMock)
+        Controller.authentication(1)
+
+        with self.assertRaises(InvalidParentIdError):
+            TaskController.save_task(parent_tid=3)
 
 
     def test_get_plan_tasks_by_time_range(self):
@@ -58,7 +67,14 @@ class TestTaskController(unittest.TestCase):
                 task.supposed_end_time = 2000
                 return [task]
 
-        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
+        class UserStorageAdapterMock():
+
+            def get_users(self, uid):
+                user = User()
+                return [user]
+
+        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock, UserStorageAdapterMock)
+        Controller.authentication(1)
 
         time_range = (10000, 17000)
         tasks = self.controller.get_plan_tasks_by_time_range(1, time_range)

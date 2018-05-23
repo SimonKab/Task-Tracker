@@ -53,6 +53,10 @@ class Parser:
     PROJECT_ID = 'pid'
     PROJECT_CREATOR = 'creator'
     PROJECT_NAME = 'name'
+    PROJECT_INVITE = 'invite'
+    PROJECT_EXCLUDE = 'exclude'
+    PROJECT_KIND_ADMIN = 'admin'
+    PROJECT_KIND_GUEST = 'guest'
 
     OVERALL_TASK = 'overall_task'
 
@@ -122,6 +126,8 @@ def parse():
         proccess_parsed(parsed)
     except NotAuthenticatedError as error:
         console_response.show_common_error(error)
+    except TaskTrackerError as error:
+        console_response.show_common_error(error)
 
 def check_is_parsed_valid(parsed):
     check_is_delete_list_valid(parsed)
@@ -159,37 +165,23 @@ def delete_arg(arg):
 
     return arg
 
-def time_arg(arg):
-    try:
-        input = arg.split(' ')
+def get_time_arg(relative_support=True):
+  def time_arg(arg):
+      try:
+          date = utils.parse_date(arg, relative_support)
+          time = utils.parse_time(arg, relative_support)
 
-        simple_date = re.match('[0-9]+-[0-9]+-[0-9]+', arg)
-        if simple_date is not None:
-            return datetime.datetime.strptime(arg, "%d-%m-%Y")
+          if date is None and time is None:
+              raise ValueError
+          else:
+              return date if date is not None else time
 
-        relative_date = re.match('today(([+-])([0-9]+))?$', arg)
-        if relative_date is not None:
-            sign = relative_date.group(2)
-            shift = relative_date.group(3)
-            today = utils.today()
-            if sign == '+':
-                return today + datetime.timedelta(days=int(shift))
-            elif sign == '-':
-                return today - datetime.timedelta(days=int(shift))
-            else:
-                return today
-
-          simple_time = re.match('[0-9]+:[0-9]+', arg)
-          if simple_time is not None:
-              return datetime.datetime.
-        else:
-            raise ValueError
-
-    except ValueError:
-        msg = ('Not a valid date: {0}. Please, write date in format like '
-               '[Day]-[Month]-[Year] or today[+-][shift]').format(arg)
-        raise argparse.ArgumentTypeError(msg)
-
+      except ValueError:
+          msg = ('Not a valid date: {0}. Please, write date in format like '
+                 '[Day]-[Month]-[Year] or today[+-][shift in days] and '
+                 '[Hour]-[Minute] or now[+-][shift in hours]').format(arg)
+          raise argparse.ArgumentTypeError(msg)
+  return time_arg
 
 def time_shift_arg(arg):
     try:
@@ -220,17 +212,79 @@ def time_shift_arg(arg):
                '[Days]d[Months]m[Years]y').format(arg)
         raise argparse.ArgumentTypeError(msg)
 
-
 def nargs_range_action(min, max):
     class RangeNargsAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             if not min <= len(values) <= max:
                 message = 'argument "{}" requires between {} and {} arguments'.format(
                     self.dest, min, max)
-                raise argparse.ArgumentTypeError(message)
+                raise argparse.ArgumentError(None, message)
             setattr(namespace, self.dest, values)
     return RangeNargsAction
 
+def time_collect_action(double=False):
+    class RangeNargsAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            left_limit = 1
+            right_limit = 2 if not double else 4
+            if not left_limit <= len(values) <= right_limit:
+                message = 'argument "{}" requires between {} and {} arguments'.format(
+                    self.dest, left_limit, right_limit)
+                raise argparse.ArgumentError(None, message)
+
+            def combine_pair(value1, value2):
+                if type(value1) == type(value2):
+                    return None
+                date = value1
+                time = value2
+                if isinstance(date, datetime.time):
+                    t = date
+                    date = time
+                    time = t
+                if date is None:
+                    date = utils.today()
+                if time is None:
+                    time = datetime.time()
+                return datetime.datetime.combine(date, time)
+
+            if not double:
+                if len(values) == 1:
+                    values.append(None)
+                result = combine_pair(values[0], values[1])
+                if result is None:
+                    message = ("Incorrect date or time. It's seems you typed "
+                        "[date] [date] or [time] [time]")
+                    raise argparse.ArgumentError(None, message)
+            else:
+                if len(values) == 1:
+                    if isinstance(values[0], datetime.date):
+                        day = values[0]
+                        next_day = day + datetime.timedelta(days=1)
+                        result = [combine_pair(day, None), 
+                                  combine_pair(next_day, None)]
+                    else:
+                        values.append(None)
+                if len(values) == 2:
+                    if ((isinstance(values[0], datetime.date)
+                        and isinstance(values[1], datetime.date))
+                        or (isinstance(values[0], datetime.time)
+                        and isinstance(values[1], datetime.time))):
+                        values.insert(1, None)
+                        values.append(None)
+                    else:
+                        result = [combine_pair(values[0], values[1])]
+                if len(values) == 3:
+                    values.append(None)
+                if len(values) == 4:
+                    result = [combine_pair(values[0], values[1]), 
+                      combine_pair(values[2], values[3])]
+                if None in result:
+                    message = ("Incorrect date or time. It's seems you typed "
+                        "[date] [date] or [time] [time]")
+                    raise argparse.ArgumentError(None, message)
+
+            setattr(namespace, self.dest, result)
+    return RangeNargsAction
 
 def init_task_parser(root):
     task_parser = root.add_parser(Parser.TASK)
@@ -239,8 +293,6 @@ def init_task_parser(root):
     init_plan_parser(task_root_subparser)
 
     add_task_parser = task_root_subparser.add_parser(Parser.ADD)
-    add_task_parser.add_argument(Parser.prefix().TASK_TID,
-                                 type=int)
     add_task_parser.add_argument(Parser.prefix().TASK_PID,
                                  type=int)
     add_task_parser.add_argument(Parser.prefix().TASK_TITLE,
@@ -248,11 +300,14 @@ def init_task_parser(root):
     add_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
                                  type=str)
     add_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
-                                 type=time_arg)
+                                 type=get_time_arg(), 
+                                 nargs='+', action=time_collect_action())
     add_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
-                                 type=time_arg)
+                                 type=get_time_arg(), 
+                                 nargs='+', action=time_collect_action())
     add_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
-                                 type=time_arg)
+                                 type=get_time_arg(), 
+                                 nargs='+', action=time_collect_action())
     add_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
                                  type=int)
     add_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
@@ -274,11 +329,14 @@ def init_task_parser(root):
     show_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
                                   type=str)
     show_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     show_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     show_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     show_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
                                   choices=['low', 'normal', 'high', 'highest'])
     show_task_parser.add_argument(Parser.prefix().TASK_STATUS,
@@ -296,7 +354,8 @@ def init_task_parser(root):
     show_task_parser.add_argument(Parser.prefix().TASK_NOT_NOTIFICATE_DEADLINE,
                                   action='store_true')
     show_task_parser.add_argument(Parser.prefix().TASK_TIME,
-                                  type=time_arg, nargs='+', action=nargs_range_action(1, 2))
+                                  type=get_time_arg(), 
+                                  nargs='+', action=time_collect_action(True))
 
     # TODO: Is it need?
     show_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
@@ -316,11 +375,14 @@ def init_task_parser(root):
     edit_task_parser.add_argument(Parser.prefix().TASK_DESCRIPTION,
                                   type=str)
     edit_task_parser.add_argument(Parser.prefix().TASK_START_TIME,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     edit_task_parser.add_argument(Parser.prefix().TASK_END_TIME,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     edit_task_parser.add_argument(Parser.prefix().TASK_DEADLINE,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     edit_task_parser.add_argument(Parser.prefix().TASK_PARENT_ID,
                                   type=int)
     edit_task_parser.add_argument(Parser.prefix().TASK_PRIORITY,
@@ -351,14 +413,13 @@ def init_plan_parser(root):
     add_plan_parser = plan_root_subparser.add_parser(Parser.ADD)
     add_plan_parser.add_argument(Parser.prefix().PLAN_TID,
                                  type=int, required=True)
-    add_plan_parser.add_argument(Parser.prefix().PLAN_START,
-                                 type=time_arg)
     add_plan_parser.add_argument(Parser.prefix().PLAN_END,
-                                 type=time_arg)
+                                 type=get_time_arg(),
+                                 nargs='+', action=time_collect_action())
     add_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT,
                                  type=time_shift_arg, required=True)
     add_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE,
-                                 type=time_arg, nargs='+')
+                                 type=get_time_arg(False), nargs='+')
 
     delete_plan_parser = plan_root_subparser.add_parser(Parser.DELETE)
     delete_plan_parser.add_argument(Parser.prefix().PLAN_ID,
@@ -377,11 +438,12 @@ def init_plan_parser(root):
     edit_plan_parser.add_argument(Parser.prefix().PLAN_ID,
                                   type=int, required=True)
     edit_plan_parser.add_argument(Parser.prefix().PLAN_END,
-                                  type=time_arg)
+                                  type=get_time_arg(),
+                                  nargs='+', action=time_collect_action())
     edit_plan_parser.add_argument(Parser.prefix().PLAN_SHIFT,
                                   type=time_shift_arg)
     edit_plan_parser.add_argument(Parser.prefix().PLAN_EXCLUDE,
-                                  type=time_arg, nargs='+')
+                                  type=get_time_arg(False), nargs='+')
     edit_plan_parser.add_argument(Parser.prefix().DELETE,
                                   type=delete_arg, nargs='+')
 
@@ -437,6 +499,21 @@ def init_project_parser(root):
                                      type=int, required=True)
     edit_project_parser.add_argument(Parser.prefix().PROJECT_NAME,
                                      type=str)
+
+    invite_project_parser = project_root_subparser.add_parser(Parser.PROJECT_INVITE)
+    invite_project_parser.add_argument(Parser.prefix().PROJECT_ID,
+                                       type=int, required=True)
+    invite_project_parser.add_argument(Parser.prefix().USER_UID,
+                                       type=int, required=True)
+    group = invite_project_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(Parser.prefix().PROJECT_KIND_GUEST, action='store_true')
+    group.add_argument(Parser.prefix().PROJECT_KIND_ADMIN, action='store_true')
+
+    exclude_project_parser = project_root_subparser.add_parser(Parser.PROJECT_EXCLUDE)
+    exclude_project_parser.add_argument(Parser.prefix().PROJECT_ID,
+                                       type=int, required=True)
+    exclude_project_parser.add_argument(Parser.prefix().USER_UID,
+                                       type=int, required=True)
 
 def init_user_parser(root):
     user_parser = root.add_parser(Parser.USER)
@@ -693,8 +770,8 @@ def proccess_task_add(parsed):
             console_response.show_common_error('Task was not added')
     except InvalidTimeError as error:
         console_response.show_invalid_time_range_error(error.start, error.end)
-    except TaskTrackerError as error:
-        console_response.show_common_error(error)
+    # except TaskTrackerError as error:
+    #     console_response.show_common_error(error)
 
 def proccess_task_show(parsed):
     tid = getattr(parsed, Parser.TASK_TID, None)
@@ -735,9 +812,10 @@ def proccess_task_show(parsed):
     time_range = None
     if time_to_show is not None:
         if len(time_to_show) == 1:
-            time_to_show.append(time_to_show[0] + datetime.timedelta(days=1))
-        time_range = (utils.datetime_to_milliseconds(time_to_show[0]),
-                      utils.datetime_to_milliseconds(time_to_show[1]))
+            time_range = (utils.datetime_to_milliseconds(time_to_show[0]), )
+        else:
+            time_range = (utils.datetime_to_milliseconds(time_to_show[0]),
+                          utils.datetime_to_milliseconds(time_to_show[1]))
 
     tasks = TaskController.fetch_tasks(parent_tid=parent,
                                        tid=tid, title=title, description=descr,
@@ -853,8 +931,6 @@ def proccess_task_edit(parsed):
             console_response.show_common_error('Task was not edited')
     except InvalidTimeError as error:
         console_response.show_invalid_time_range_error(error.start, error.end)
-    except TaskTrackerError as error:
-        console_response.show_common_error(error)
 
 def proccess_overall_task(parsed):
     tasks = TaskController.fetch_tasks()
@@ -903,6 +979,10 @@ def proccess_user_show(parsed):
         online_filter = False
 
     users = UserController.fetch_user(uid, login, online_filter)
+    current = read_current_login()
+    for user in users:
+        if user.login == current:
+            user.online = True
     if users is not None:
         console_response.show_users_in_console(users)
     else:
@@ -942,7 +1022,7 @@ def proccess_user_edit(parsed):
             console_response.show_common_ok()
         else:
             console_response.show_common_error('User was not edited')
-    except UserNotExistsError as error:
+    except UserAlreadyExistsError as error:
         print(error)
 
 def proccess_project(parsed):
@@ -954,6 +1034,10 @@ def proccess_project(parsed):
         proccess_project_delete(parsed)
     if parsed.project == Parser.EDIT:
         proccess_project_edit(parsed)
+    if parsed.project == Parser.PROJECT_INVITE:
+        proccess_project_invite(parsed)
+    if parsed.project == Parser.PROJECT_EXCLUDE:
+        proccess_project_exclude(parsed)
     if parsed.project is None:
         proccess_project_show(parsed)
 
@@ -989,7 +1073,7 @@ def proccess_project_show(parsed):
 
     projects = ProjectController.fetch_projects()
     if projects is not None:
-        console_response.show_projects(projects)
+        console_response.show_projects_for_user(projects, Controller.get_authenticated_id())
 
 def proccess_project_delete(parsed):
     pid = getattr(parsed, Parser.PROJECT_ID, None)
@@ -1013,6 +1097,28 @@ def proccess_project_edit(parsed):
     else:
         console_response.show_common_error('Project was not edited')
 
+def proccess_project_invite(parsed):
+    pid = getattr(parsed, Parser.PROJECT_ID, None)
+    uid = getattr(parsed, Parser.USER_UID, None)
+    admin = getattr(parsed, Parser.PROJECT_KIND_ADMIN, None)
+    guest = getattr(parsed, Parser.PROJECT_KIND_GUEST, None)
+
+    success = ProjectController.invite_user_to_project(pid=pid, uid=uid, 
+                                                       admin=admin, guest=guest)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('User was not invited')
+
+def proccess_project_exclude(parsed):
+    pid = getattr(parsed, Parser.PROJECT_ID, None)
+    uid = getattr(parsed, Parser.USER_UID, None)
+
+    success = ProjectController.exclude_user_from_project(pid=pid, uid=uid)
+    if success:
+        console_response.show_common_ok()
+    else:
+        console_response.show_common_error('User was not excluded')
 
 def proccess_login(parsed):
     login = getattr(parsed, Parser.LOGIN, None)

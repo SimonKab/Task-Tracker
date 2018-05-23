@@ -1,22 +1,32 @@
 import unittest
-from tasktracker_server.storage.sqlite_peewee_adapters import TaskStorageAdapter, UserStorageAdapter, PlanStorageAdapter
+from tasktracker_server.storage.sqlite_peewee_adapters import TaskStorageAdapter, UserStorageAdapter, PlanStorageAdapter, ProjectStorageAdapter
 from tasktracker_server.model.task import Task
 from tasktracker_server.model.user import User
 from tasktracker_server.model.plan import Plan
+from tasktracker_server.model.project import Project
 from tasktracker_server import utils
 import os
 import datetime
 
-_TEST_DB = 'test_tasktracker.db'
+# _TEST_DB = 'test_tasktracker.db'
+_TEST_DB = ':memory:'
 
 class TestTask(unittest.TestCase):
 
     def setUp(self):
         self.storage = TaskStorageAdapter(_TEST_DB)
-        self.storage.connect()
+        self.project_storage = ProjectStorageAdapter(_TEST_DB)
+        self.user_storage = UserStorageAdapter(_TEST_DB)
+
+        user = User()
+        self.user_storage.save_user(user)
+        project = Project()
+        project.creator = 1
+        self.project_storage.save_project(project)
 
     def test_save_get_tasks(self):
         test_task = Task()
+        test_task.pid = 1
         test_task.title = 'vfdmk'
         test_task.description = 'vvkjndk'
         test_task.deadline_time = 23233
@@ -36,11 +46,13 @@ class TestTask(unittest.TestCase):
 
     def test_save_get_title_filtered_tasks(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
@@ -65,16 +77,19 @@ class TestTask(unittest.TestCase):
 
     def test_save_get_title_descr_filtered_tasks(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
 
         test_task_3 = Task()
+        test_task_3.pid = 1
         test_task_3.title = 'vfdmk'
         test_task_3.description = 'vvkjndk232332'
         test_task_3.deadline_time = 23233
@@ -97,6 +112,7 @@ class TestTask(unittest.TestCase):
 
     def test_save_get_all_filtered_tasks(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
@@ -113,6 +129,7 @@ class TestTask(unittest.TestCase):
     
     def test_save_remove_get_tasks(self):
         test_task = Task()
+        test_task.pid = 1
         test_task.title = 'flkmerfkl'
         test_task.description = 'lkfmelkf'
         test_task.supposed_start_time = 232332
@@ -135,6 +152,7 @@ class TestTask(unittest.TestCase):
 
     def test_save_edit_get_tasks(self):
         test_task = Task()
+        test_task.pid = 1
         test_task.title = 'flkmerfkl'
         test_task.description = 'lkfmelkf'
         test_task.supposed_start_time = 232332
@@ -143,6 +161,7 @@ class TestTask(unittest.TestCase):
         test_task.notificate_deadline = True
 
         edited_test_task = Task()
+        edited_test_task.pid = 1
         edited_test_task.title = 'efnkrjf'
         edited_test_task.description = '23323223'
         edited_test_task.supposed_start_time = 232332
@@ -173,34 +192,43 @@ class TestTask(unittest.TestCase):
         self.assertEqual(tasks_in_db_after_edit[0], edited_test_task)
         self.assertEqual(tasks_in_db_after_edit[1], tasks_in_db[1])
 
-    def tearDown(self):
-        if self.storage.is_connected():
-            self.storage.disconnect()
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)
 
 class TestTaskParentTid(unittest.TestCase):
 
     def setUp(self):
         self.storage = TaskStorageAdapter(_TEST_DB)
-        self.storage.connect()    
+        self.user_storage = UserStorageAdapter(_TEST_DB) 
+        self.project_storage = ProjectStorageAdapter(_TEST_DB)
+
+        user = User()
+        self.user_storage.save_user(user)
+        project = Project()
+        project.creator = 1
+        self.project_storage.save_project(project)
 
     def test_save_get_single_parent_tid(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
 
         test_task_3 = Task()
+        test_task_3.pid = 1
         test_task_3.title = 'vfdmk'
         test_task_3.description = 'vvkjndk232332'
         test_task_3.deadline_time = 23233
 
         test_task_4 = Task()
+        test_task_4.pid = 1
         test_task_4.title = 'vfdmk'
         test_task_4.description = 'vvkjndk232332'
         test_task_4.deadline_time = 23233
@@ -224,23 +252,27 @@ class TestTaskParentTid(unittest.TestCase):
 
     def test_save_remove_get_single_parent_tid(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
         test_task_2.parent_tid = 1
 
         test_task_3 = Task()
+        test_task_3.pid = 1
         test_task_3.title = 'vfdmk'
         test_task_3.description = 'vvkjndk232332'
         test_task_3.deadline_time = 23233
         test_task_3.parent_tid = 1
 
         test_task_4 = Task()
+        test_task_4.pid = 1
         test_task_4.title = 'vfdmk'
         test_task_4.description = 'vvkjndk232332'
         test_task_4.deadline_time = 23233
@@ -261,21 +293,25 @@ class TestTaskParentTid(unittest.TestCase):
 
     def test_save_remove_get_multi_parent_tid(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'vfdmk'
         test_task_1.description = 'vvkjndk'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'lmlkmlkml'
         test_task_2.description = 'vvkjndk'
         test_task_2.deadline_time = 23233
 
         test_task_3 = Task()
+        test_task_3.pid = 1
         test_task_3.title = 'vfdmk'
         test_task_3.description = 'vvkjndk232332'
         test_task_3.deadline_time = 23233
 
         test_task_4 = Task()
+        test_task_4.pid = 1
         test_task_4.title = 'vfdmk'
         test_task_4.description = 'vvkjndk232332'
         test_task_4.deadline_time = 23233
@@ -294,10 +330,8 @@ class TestTaskParentTid(unittest.TestCase):
         tasks_in_db = self.storage.get_tasks()
         self.assertEqual(len(tasks_in_db), 0)
 
-    def tearDown(self):
-        if self.storage.is_connected():
-            self.storage.disconnect()
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)
 
 class TestUser(unittest.TestCase):
 
@@ -450,21 +484,25 @@ class TestUser(unittest.TestCase):
         self.assertEqual(users_in_db_after_edit[0], edited_test_user)
         self.assertEqual(users_in_db_after_edit[1], users_in_db[1])
 
-    def tearDown(self):
-        if self.storage.is_connected():
-            self.storage.disconnect()
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)
 
 class TestTaskUser(unittest.TestCase):
 
     def setUp(self):
         self.storage_task = TaskStorageAdapter(_TEST_DB)
-        self.storage_task.connect()
         self.storage_user = UserStorageAdapter(_TEST_DB)
-        self.storage_user.connect()
+        self.storage_project = ProjectStorageAdapter(_TEST_DB)
+
+        user = User()
+        self.storage_user.save_user(user)
+        project = Project()
+        project.creator = 1
+        self.storage_project.save_project(project)
 
     def test_save_get_user_task(self):
         test_task = Task()
+        test_task.pid = 1
         test_task.title = 'title 1'
         test_task.description = 'description 1'
         test_task.deadline_time = 23233
@@ -489,11 +527,13 @@ class TestTaskUser(unittest.TestCase):
 
     def test_save_task_remove_user(self):
         test_task_1 = Task()
+        test_task_1.pid = 1
         test_task_1.title = 'title 1'
         test_task_1.description = 'description 1'
         test_task_1.deadline_time = 23233
 
         test_task_2 = Task()
+        test_task_2.pid = 1
         test_task_2.title = 'title 2'
         test_task_2.description = 'description 1'
         test_task_2.deadline_time = 23233
@@ -517,26 +557,30 @@ class TestTaskUser(unittest.TestCase):
         test_task_2.tid = tasks_in_db[0].tid
         self.assertEqual(test_task_2, tasks_in_db[0])
 
-    def tearDown(self):
-        if self.storage_task.is_connected():
-            self.storage_task.disconnect()
-        if self.storage_user.is_connected():
-            self.storage_user.disconnect()
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)
 
 class TestPlan(unittest.TestCase):
 
     def setUp(self):
         self.storage_plan = PlanStorageAdapter(_TEST_DB)
-        self.storage_plan.connect()
         self.storage_task = TaskStorageAdapter(_TEST_DB)
-        self.storage_task.connect()
+        self.storage_user = UserStorageAdapter(_TEST_DB)
+        self.storage_project = ProjectStorageAdapter(_TEST_DB)
+
+        user = User()
+        self.storage_user.save_user(user)
+        project = Project()
+        project.creator = 1
+        self.storage_project.save_project(project)
 
     def test_save_plan(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         task2 = Task()
+        task2.pid = 1
         task2.title = 'Title 2'
 
         self.storage_task.save_task(task1)
@@ -552,9 +596,11 @@ class TestPlan(unittest.TestCase):
 
     def test_get_plans_for_common_tid(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         task2 = Task()
+        task2.pid = 1
         task2.title = 'Title 2'
 
         self.storage_task.save_task(task1)
@@ -582,6 +628,7 @@ class TestPlan(unittest.TestCase):
 
     def test_plans_delete_repeat(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -604,6 +651,7 @@ class TestPlan(unittest.TestCase):
 
     def test_plans_restore_repeat(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -626,6 +674,7 @@ class TestPlan(unittest.TestCase):
 
     def test_plans_edit_repeat(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -638,6 +687,7 @@ class TestPlan(unittest.TestCase):
         self.storage_plan.save_plan(plan1)
 
         task2 = Task()
+        task2.pid = 1
         task2.title = 'Title 2'
 
         self.storage_task.save_task(task2)
@@ -653,6 +703,7 @@ class TestPlan(unittest.TestCase):
 
     def test_exclude_delete_type(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -670,11 +721,13 @@ class TestPlan(unittest.TestCase):
 
     def test_exclude_edit_type(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
 
         task2 = Task()
+        task2.pid = 1
         task2.title = 'Title 2'
 
         self.storage_task.save_task(task2)
@@ -692,6 +745,7 @@ class TestPlan(unittest.TestCase):
 
     def test_make_shift_bigger(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -704,7 +758,8 @@ class TestPlan(unittest.TestCase):
         self.storage_plan.save_plan(plan1)
 
         new_shift = utils.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=6))
-        success = self.storage_plan.edit_plan(1, shift=new_shift)
+        args = {Plan.Field.plan_id: 1, Plan.Field.shift: new_shift}
+        success = self.storage_plan.edit_plan(args)
         self.assertEqual(success, True)
 
         plans = self.storage_plan.get_plans(plan_id=1)[0]
@@ -716,6 +771,7 @@ class TestPlan(unittest.TestCase):
 
     def test_make_shift_smaller(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -728,7 +784,8 @@ class TestPlan(unittest.TestCase):
         self.storage_plan.save_plan(plan1)
 
         new_shift = utils.datetime_to_milliseconds(datetime.datetime.utcfromtimestamp(0) + datetime.timedelta(days=3))
-        success = self.storage_plan.edit_plan(1, shift=new_shift)
+        args = {Plan.Field.plan_id: 1, Plan.Field.shift: new_shift}
+        success = self.storage_plan.edit_plan(args)
         self.assertEqual(success, True)
 
         plans = self.storage_plan.get_plans(plan_id=1)[0]
@@ -740,6 +797,7 @@ class TestPlan(unittest.TestCase):
 
     def test_remove_plan(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
 
         self.storage_task.save_task(task1)
@@ -759,6 +817,7 @@ class TestPlan(unittest.TestCase):
 
     def test_recalculate_exclude_when_start_time_shifted_forward(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
         task1.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
 
@@ -785,6 +844,7 @@ class TestPlan(unittest.TestCase):
 
     def test_recalculate_exclude_when_start_time_shifted_differ(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
         task1.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
 
@@ -811,6 +871,7 @@ class TestPlan(unittest.TestCase):
 
     def test_recalculate_exclude_when_start_time_shifted_backward(self):
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
         task1.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
 
@@ -836,12 +897,13 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(plan, plan1)
 
     def test_remove_task_when_its_common_for_plan(self):
-
         task1 = Task()
+        task1.pid = 1
         task1.title = 'Title 1'
         task1.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
 
         task2 = Task()
+        task2.pid = 1
         task2.title = 'Title 2'
         task2.supposed_start_time = utils.datetime_to_milliseconds(datetime.datetime.today())
 
@@ -867,7 +929,5 @@ class TestPlan(unittest.TestCase):
         plans = self.storage_plan.get_plans()
         self.assertEqual(len(plans), 0)
 
-    def tearDown(self):
-        self.storage_plan.disconnect()
-        self.storage_task.disconnect()
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)

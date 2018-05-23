@@ -9,6 +9,18 @@ class Project():
         self.admins = None
         self.guests = None
 
+    def get_user_kind(self, uid):
+        if (self.creator == uid 
+            or (self.admins is not None and uid in self.admins)):
+            return self.UserKind.ADMIN
+        if self.guests is not None and uid in self.guests:
+            return self.UserKind.GUEST
+        return None
+
+    class UserKind():
+        ADMIN = 0
+        GUEST = 1
+
     class Field():
         pid = 'pid'
         creator = 'creator'

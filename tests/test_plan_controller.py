@@ -4,6 +4,7 @@ import datetime
 from tasktracker_server.requests.controllers import PlanController, Controller
 from tasktracker_server.model.task import Task, Status, Priority
 from tasktracker_server.model.plan import Plan
+from tasktracker_server.model.user import User
 from tasktracker_server import utils
 
 class TestPlanController(unittest.TestCase):
@@ -45,9 +46,14 @@ class TestPlanController(unittest.TestCase):
                 task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=3))
                 return [task]
 
+        class UserStorageAdapterMock():
 
+            def get_users(self, uid):
+                user = User()
+                return [user]
 
-        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
+        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock, UserStorageAdapterMock)
+        Controller.authentication(1)
 
         time_range = (utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=10)),
                       utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=20)))
@@ -80,7 +86,14 @@ class TestPlanController(unittest.TestCase):
                 task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=3))
                 return [task]
 
-        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
+        class UserStorageAdapterMock():
+
+            def get_users(self, uid):
+                user = User()
+                return [user]
+
+        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock, UserStorageAdapterMock)
+        Controller.authentication(1)
 
         time_range = (utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=10)),
                       utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=20)))
@@ -95,12 +108,12 @@ class TestPlanController(unittest.TestCase):
             _number = None
             _tid = None
 
-            def get_plans(self, plan_id):
+            def get_plans(self, plan_id=None, common_tid=None):
                 plan = Plan()
                 plan.tid = 1
                 plan.plan_id = 1
                 plan.shift = utils.create_shift_in_millis(datetime.timedelta(days=3))
-                plan.exclude = [3]
+                plan.exclude = [5]
                 return [plan]
 
             def edit_plan_repeat(self, plan_id, number, tid):
@@ -123,8 +136,12 @@ class TestPlanController(unittest.TestCase):
                 def tid(self, tid):
                     self._tid = tid
 
+                def uid(self, uid):
+                    self._uid = uid
+
             def get_tasks(self, filter):
-                if filter._tid == 1:
+                tid = getattr(filter, '_tid', None)
+                if tid is not None and tid == 1:
                     task = Task()
                     task.tid = 1
                     task.status = Status.PENDING
@@ -132,7 +149,7 @@ class TestPlanController(unittest.TestCase):
                     task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=2))
                     task.notificate_supposed_start=False
                     return [task]
-                if filter._tid == 2:
+                if tid is not None and tid == 2:
                     task = Task()
                     task.tid = 2
                     task.status = Status.PENDING
@@ -154,7 +171,14 @@ class TestPlanController(unittest.TestCase):
                 self._saved_task.tid = 3
                 return self._saved_task
 
-        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
+        class UserStorageAdapterMock():
+
+            def get_users(self, uid):
+                user = User()
+                return [user]
+
+        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock, UserStorageAdapterMock)
+        Controller.authentication(1)
 
         success = self.controller.edit_repeat_by_number(1, 3, status=Status.COMPLETED,
                                               notificate_supposed_start=True)
@@ -166,9 +190,8 @@ class TestPlanController(unittest.TestCase):
         task.supposed_start_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=9))
         task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=11))
         task.notificate_supposed_start=True
-        task.notificate_deadline=True
 
-        self.assertEqual(TaskStorageAdapterMock._saved_task, task)
+        self.assertEqual(TaskStorageAdapterMock._saved_task.__dict__, task.__dict__)
         self.assertEqual(TaskStorageAdapterMock._removed_tid, 2)
         self.assertEqual(PlanStorageAdapterMock._plan_id, 1)
         self.assertEqual(PlanStorageAdapterMock._number, 3)
@@ -200,7 +223,14 @@ class TestPlanController(unittest.TestCase):
                 task.notificate_supposed_start=False
                 return [task]
 
-        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock)
+        class UserStorageAdapterMock():
+
+            def get_users(self, uid):
+                user = User()
+                return [user]
+
+        Controller.init_storage_adapters(PlanStorageAdapterMock, TaskStorageAdapterMock, UserStorageAdapterMock)
+        Controller.authentication(1)
 
         time_range = (utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=8)),
                     utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=30)))

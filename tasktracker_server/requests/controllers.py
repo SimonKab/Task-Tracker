@@ -7,6 +7,7 @@ from tasktracker_server.storage.sqlite_peewee_adapters import UserStorageAdapter
 from tasktracker_server.storage.sqlite_peewee_adapters import PlanStorageAdapter
 from tasktracker_server.storage.sqlite_peewee_adapters import ProjectStorageAdapter
 import tasktracker_server.utils as utils
+import tasktracker_server.logging as logging
 
 import copy
 import datetime
@@ -48,7 +49,7 @@ class InvalidStatusError(TaskTrackerError):
 class InvalidProjectIdError(TaskTrackerError):
 
     def __init__(self, pid, explanation=None):
-        msg = 'Invalid project: {}. '.format(status)
+        msg = 'Invalid project: {}. '.format(pid)
         if explanation is not None:
             msg += explanation
         super().__init__(msg)
@@ -76,6 +77,12 @@ class NotAuthenticatedError(TaskTrackerError):
     def __init__(self):
         super().__init__('User was not authenticated')
 
+class PermissionDenied(TaskTrackerError):
+
+    def __init__(self):
+        super().__init__('Permission denied')
+
+
 class Controller():
 
     class Validator():
@@ -85,6 +92,8 @@ class Controller():
                 if attr.startswith('validate_'):
                     method = getattr(self, attr)
                     method()
+
+    _log_tag = 'Controller'
 
     _user_login_id = None
 
@@ -100,13 +109,21 @@ class Controller():
                               task_storage_adapter=None,
                               user_storage_adapter=None,
                               project_storage_adapter=None):
-        if plan_storage_adapter is not None:
+        if plan_storage_adapter is None:
+            cls._plan_storage = PlanStorageAdapter()
+        else:
             cls._plan_storage = plan_storage_adapter()
-        if task_storage_adapter is not None:
+        if task_storage_adapter is None:
+            cls._task_storage = TaskStorageAdapter()
+        else:
             cls._task_storage = task_storage_adapter()
-        if user_storage_adapter is not None:
+        if user_storage_adapter is None:
+            cls._user_storage = UserStorageAdapter()
+        else:
             cls._user_storage = user_storage_adapter()
-        if project_storage_adapter is not None:
+        if project_storage_adapter is None:
+            cls._project_storage = ProjectStorageAdapter()
+        else:
             cls._project_storage = project_storage_adapter()
 
     @classmethod
@@ -114,8 +131,10 @@ class Controller():
         users = UserController.fetch_user(uid=user_id)
         success = users is not None and len(users) != 0
         if success:
+            logging.get_logger(cls._log_tag).error('Authenticated {}'.format(user_id))
             cls._user_login_id = user_id
         else:
+            logging.get_logger(cls._log_tag).error('Authentication error for id {}'.format(user_id))
             raise AuthenticationError()
         return success
 
@@ -131,7 +150,13 @@ class Controller():
     def is_authenticated(cls):
         return cls._user_login_id != None
 
+    @classmethod
+    def get_authenticated_id(cls):
+        return cls._user_login_id
+
 class TaskController(Controller):
+
+    _log_tag = 'TaskController'
 
     class TaskValidator(Controller.Validator):
 
@@ -155,6 +180,7 @@ class TaskController(Controller):
 
             if start != -1 and end != -1:
                 if is_first_bigger(start, end):
+                    logging.get_logger(self.controller._log_tag).error('Invalide task range [{}:{}]'.format(start, end))
                     raise InvalidTimeError(start, end)
 
         def validate_parent_tid(self):
@@ -162,12 +188,14 @@ class TaskController(Controller):
                 return
 
             if self.task.parent_tid == self.task.tid:
+                logging.get_logger(self.controller._log_tag).error('Wrong parent tid. Trying to connect task to itself')
                 raise InvalidParentIdError(parent_tid)
 
             filter = TaskStorageAdapter.Filter()
             filter.tid(self.task.parent_tid)
             tasks = self.controller._task_storage.get_tasks(filter)
             if len(tasks) == 0:
+                logging.get_logger(self.controller._log_tag).error('Wrong parent tid. Parent does not exist')
                 raise InvalidParentIdError(self.task.parent_tid)
 
             parent_task = tasks[0]
@@ -178,6 +206,7 @@ class TaskController(Controller):
             if self.task.priority != parent_task.priority:
                 msg = 'Wrong priority. Parent priority: {}, child \
                     priority: {}'.format(parent_task.priority, self.task.priority)
+                logging.get_logger(self.controller._log_tag).error('Priority is not equal to parent priority')
                 raise InvalidParentIdError(self.task.parent_tid, msg)
 
             if self.task.status is None:
@@ -186,6 +215,7 @@ class TaskController(Controller):
             if (parent_task.status == Status.COMPLETED
                     and self.task.status != Status.COMPLETED):
                 msg = 'Wrong parent status. Task status has to be completed because parent status is completed'
+                logging.get_logger(self.controller._log_tag).error('Trying to connect not completed task with complete parent')
                 raise InvalidParentIdError(self.task.parent_tid, msg)    
 
             if (parent_task.status == Status.ACTIVE 
@@ -196,6 +226,7 @@ class TaskController(Controller):
             if (parent_task.status == Status.OVERDUE
                 and self.task.status != Status.OVERDUE):
                 msg = 'Wrong parent status. Task status has to be overdue because parent status is overdue'
+                logging.get_logger(self.controller._log_tag).error('Trying to connect not overdue task with overdue parent')
                 raise InvalidParentIdError(self.task.parent_tid, msg)
 
             parent_task_time_range = parent_task.get_time_range()
@@ -206,25 +237,30 @@ class TaskController(Controller):
                 self.task.deadline_time = parent_task.deadline_time
             if len(parent_task_time_range) == 2:
                 if not self.task.is_task_inside_of_range(parent_task_time_range):
+                    logging.get_logger(self.controller._log_tag).error('Child task is wider')
                     msg = 'Wrong time. Child task time is wider than parent'
                     raise InvalidParentIdError(self.task.parent_tid, msg)
             if len(parent_task_time_range) == 1:
                 if len(task_time_range) == 2:
+                    logging.get_logger(self.controller._log_tag).error('Child task is wider')
                     msg = 'Wrong time. Child task time is wider than parent'
                     raise InvalidParentIdError(self.task.parent_tid, msg)
                 if len(task_time_range) == 1:
                     if task_time_range != parent_task_time_range:
+                        logging.get_logger(self.controller._log_tag).error('Child task is wider')
                         msg = 'Wrong time. Child task time is wider than parent'
                         raise InvalidParentIdError(self.task.parent_tid, msg)    
 
             planned = PlanController.is_task_planned(self.task.parent_tid)
             if planned:
+                logging.get_logger(self.controller._log_tag).error('Trying to create planned parent')
                 msg = 'Parent can not be planned'
                 raise InvalidParentIdError(self.task.parent_tid, msg)
 
         def validate_pid(self):
             projects = ProjectController.fetch_projects(pid=self.task.pid)
             if projects is None or len(projects) == 0:
+                logging.get_logger(self.controller._log_tag).error('Trying to connect with non-existent project')
                 raise InvalidProjectIdError(self.task.pid)
 
         def validate_status_time_relations(self):
@@ -238,11 +274,15 @@ class TaskController(Controller):
                     and not self.task.only_start()):
                     if (self.task.status == Status.PENDING
                         or self.task.status == Status.ACTIVE):
+                        logging.get_logger(self.controller._log_tag).error(('Trying to set status as pending or active ' 
+                            'when task is in the past'))
                         msg = ('Wrong status. You can not set status as pending '
                             'or active if task is in the past')
                         raise InvalidStatusError(Status.to_str(self.task.status), msg)
                 else:
                     if self.task.status == Status.OVERDUE:
+                        logging.get_logger(self.controller._log_tag).error(('Trying to set status as overdue ' 
+                            'when task is in the past'))
                         msg = ('Wrong status. You can not set status as overdue'
                             'if task is not in the past')
                         raise InvalidStatusError(Status.to_str(self.task.status), msg)
@@ -251,6 +291,7 @@ class TaskController(Controller):
 
             plans = PlanController.get_plan_for_edit_repeat_task(self.task.tid)
             if plans is not None and len(plans) != 0:
+                logging.get_logger(self.controller._log_tag).error('Trying to change edit repeat not through plan menu')
                 raise EditPlanRepeatEditTaskError()
 
     @classmethod
@@ -269,14 +310,16 @@ class TaskController(Controller):
                   notificate_supposed_end=None,
                   notificate_deadline=None, task_id=-1):
 
-        if task_id is None:
-            task_id = -1
-
         if pid is None:
             default_project = ProjectController.get_default_project_for_user(Controller._user_login_id)
             if default_project is None:
                 return False
             pid = default_project.pid
+
+        UserController.check_project_available(cls._user_login_id, pid, True)
+
+        if task_id is None:
+            task_id = -1
 
         if status is None:
             status = Status.PENDING
@@ -346,6 +389,8 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def find_overdue_tasks(cls, time):
+        logging.get_logger(cls._log_tag).info('Find overdue tasks command starts')
+
         filter = cls._task_storage.Filter()
         filter.uid(cls._user_login_id)
         filter.overdue_by_time(time)
@@ -367,8 +412,9 @@ class TaskController(Controller):
                     PlanController.edit_repeat_by_number(plan.plan_id, repeat, status=Status.OVERDUE)
                 return
             
-            print(task.tid)
             cls.edit_task(task.tid, status=Status.OVERDUE)
+
+            logging.get_logger(cls._log_tag).info('Find overdue tasks command finnished')
 
     @classmethod
     @Controller.require_authentication
@@ -376,17 +422,20 @@ class TaskController(Controller):
                         priority=None, status=None, notificate_supposed_start=None, 
                         notificate_supposed_end=None, notificate_deadline=None, 
                         time_range=None, timeless=None):
+
         if isinstance(priority, str):
             priority = Priority.from_str(priority)
         if isinstance(status, str):
             status = Status.from_str(status)
 
         filter = cls._task_storage.Filter()
-        filter.uid(cls._user_login_id)
+        if pid is not None:
+            UserController.check_project_available(cls._user_login_id, pid)
+            filter.pid(pid)
+        else:
+            filter.uid(cls._user_login_id)
         if tid is not None:
             filter.tid(tid)
-        if pid is not None:
-            filter.pid(pid)
         if parent_tid is not None:
             filter.parent_tid(parent_tid)
         if title is not None:
@@ -404,19 +453,26 @@ class TaskController(Controller):
         if notificate_deadline is not None:
             filter.notificate_deadline(notificate_deadline)
         if time_range is not None:
-            filter.filter_range(*time_range)
+            filter_time_range = time_range
+            if len(filter_time_range) == 1:
+                filter_time_range = (filter_time_range[0], filter_time_range[0])
+            filter.filter_range(*filter_time_range)
         if timeless:
             filter.timeless()
 
         tasks = cls._task_storage.get_tasks(filter)
-        if time_range is None:
-            reverse_task = tasks[::-1]
-            for i in range(len(reverse_task)):
-                task = reverse_task[i]
-                plans = PlanController.get_plan_for_common_task(task.tid)
-                if plans is not None and len(plans) != 0:
-                    tasks.remove(task)
-                    tasks.append(cls.get_most_valuable_task(plans[0].plan_id))
+
+        reverse_task = tasks[::-1]
+        for i in range(len(reverse_task)):
+            task = reverse_task[i]
+            plans = PlanController.get_plan_for_common_task(task.tid)
+            if plans is not None and len(plans) != 0:
+                tasks.remove(task)
+                if time_range is None:
+                    most_valuable_task = cls.get_most_valuable_task(plans[0].plan_id)
+                    logging.get_logger(cls._log_tag).info(('Task {} was defined as planned. '
+                        'Most valuable for it is {}').format(task.tid, most_valuable_task.__dict__))
+                    tasks.append(most_valuable_task)
 
         if time_range is not None:
             plans = PlanController.get_plans_by_time_range(time_range)
@@ -429,6 +485,7 @@ class TaskController(Controller):
                 if tasks is None:
                     tasks = []
                 tasks.extend(plan_tasks)
+
         return tasks
 
     @classmethod
@@ -497,9 +554,9 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def remove_task(cls, task_id):
-        cls._task_storage.connect()
+        UserController.check_task_available(cls._user_login_id, task_id, True)
+
         success = cls._task_storage.remove_task(task_id)
-        cls._task_storage.disconnect()
         return success
 
     @classmethod
@@ -517,6 +574,7 @@ class TaskController(Controller):
                   notificate_supposed_end=Controller._not_edit_field_flag, 
                   notificate_deadline=Controller._not_edit_field_flag,
                   force=False):
+        UserController.check_task_available(cls._user_login_id, task_id, True)
 
         filter = TaskStorageAdapter.Filter()
         filter.tid(task_id)
@@ -592,6 +650,8 @@ class TaskController(Controller):
 
 class UserController(Controller):
 
+    _log_tag = 'UserController'
+
     @classmethod
     def save_user(cls, login=None, user_id=-1):
         if user_id is None:
@@ -630,7 +690,12 @@ class UserController(Controller):
 
     @classmethod
     def delete_user(cls, user_id):
-        # TODO: remove projects of user
+        projects = cls._project_storage.get_projects(user_id)
+        for project in projects:
+            if project.creator == user_id:
+                ProjectController.remove_project_for_user(user_id, project.pid)
+
+        ProjectController.fetch_projects()
         success = cls._user_storage.delete_user(user_id)
         return success
 
@@ -644,17 +709,65 @@ class UserController(Controller):
 
         if login is not -1 and login is not None:
             exists = cls._user_storage.check_user_existence(login)
-            if not exists:
-                raise UserNotExistsError(login)
+            if exists:
+                logging.get_logger(cls._log_tag).error('Trying to add already exist user')
+                raise UserAlreadyExistsError(login)
 
         success = cls._user_storage.edit_user(user_field_dict)
         return success
 
+    @classmethod
+    def check_task_available(cls, uid, tid, edit=False):
+        filter = TaskStorageAdapter.Filter()
+        filter.tid(tid)
+        tasks = cls._task_storage.get_tasks(filter)
+        if tasks is not None and len(tasks) != 0:
+            task = tasks[0]
+            projects = ProjectController.fetch_projects(pid=task.pid)
+            if projects is not None and len(projects) != 0:
+                project = projects[0]
+                user_kind = project.get_user_kind(uid)
+                if edit and user_kind == Project.UserKind.GUEST:
+                    logging.get_logger(cls._log_tag).error('Trying to edit task by guest')
+                    raise PermissionDenied()
+                if user_kind is None:
+                    logging.get_logger(cls._log_tag).error('Trying to access task which does not belong to user')
+                    raise PermissionDenied()
+            elif task.uid != uid:
+                logging.get_logger(cls._log_tag).error('Trying to access task which does not belong to user')
+                raise PermissionDenied()                
+                    
+
+    @classmethod
+    def check_plan_available(cls, uid, plan_id, edit=False):
+        plans = cls._plan_storage.get_plans(plan_id=plan_id)
+        if plans is None or len(plans) == 0:
+            return
+        plan = plans[0]
+        cls.check_task_available(uid, plan.tid, edit)
+
+    @classmethod
+    def check_project_available(cls, uid, pid, edit=False):
+        projects = cls._project_storage.get_projects(uid=uid, pid=pid)
+        if projects is not None and len(projects) != 0:
+            project = projects[0]
+            user_kind = project.get_user_kind(uid)
+            if user_kind is None:
+                logging.get_logger(cls._log_tag).error('Trying to access project which does not belong to user')
+                raise PermissionDenied()
+            if edit and user_kind == Project.UserKind.GUEST:
+                logging.get_logger(cls._log_tag).error('Trying to edit project by guest')
+                raise PermissionDenied()
+
 class PlanController(Controller):
+
+    _log_tag = 'PlanController'
 
     @classmethod
     @Controller.require_authentication
     def attach_plan(cls, tid, shift, end=None):
+        UserController.check_task_available(cls._user_login_id, tid, True)
+
         task = TaskController.fetch_tasks(tid=tid)[0]
         if len(task.get_time_range()) == 0:
             return False
@@ -675,6 +788,8 @@ class PlanController(Controller):
     @Controller.require_authentication
     def edit_plan(cls, plan_id, shift=Controller._not_edit_field_flag, 
                 end=Controller._not_edit_field_flag):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         attr = {Plan.Field.plan_id: plan_id}
         if shift is not Controller._not_edit_field_flag:
             attr[Plan.Field.shift] = shift
@@ -698,6 +813,8 @@ class PlanController(Controller):
                               notificate_supposed_end=Controller._not_edit_field_flag, 
                               notificate_deadline=Controller._not_edit_field_flag):
         
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         plans = cls._plan_storage.get_plans(plan_id=plan_id)
         if plans is None or len(plans) == 0:
             return False
@@ -743,6 +860,8 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def is_task_planned(cls, tid):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         plans = cls.get_plan_for_common_task(tid)
         edit_plans = cls.get_plan_for_edit_repeat_task(tid)
         plans += edit_plans
@@ -751,6 +870,8 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def delete_repeats_from_plan_by_number(cls, plan_id, number):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         edit_tid = cls.get_tid_for_edit_repeat(plan_id, number)
         type = cls._plan_storage.get_exclude_type(plan_id, number)
         if type == Plan.PlanExcludeKind.DELETED:
@@ -764,6 +885,8 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def delete_repeats_from_plan_by_time_range(cls, plan_id, time_range):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         repeats = cls.get_repeats_by_time_range(plan_id, time_range, with_exclude=True)
         if repeats is None:
             return False
@@ -778,24 +901,32 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def delete_plan(cls, plan_id):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         success = cls._plan_storage.remove_plan(plan_id)
         return success
 
     @classmethod
     @Controller.require_authentication
     def restore_all_repeats(cls, plan_id):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         success = cls._plan_storage.restore_all_repeats(plan_id)
         return success
 
     @classmethod
     @Controller.require_authentication
     def restore_repeat(cls, plan_id, number):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         success = cls._plan_storage.restore_repeat(plan_id, number)
         return success
 
     @classmethod
     @Controller.require_authentication
     def restore_repeats_in_time_range(cls, plan_id, time_range):
+        UserController.check_plan_available(cls._user_login_id, plan_id, True)
+
         repeats = cls.get_repeats_by_time_range(time_range)
         if repeats is None:
             return False
@@ -810,30 +941,40 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_plan_for_common_task(cls, common_tid):
+        UserController.check_task_available(cls._user_login_id, common_tid)
+
         plans = cls._plan_storage.get_plans(common_tid=common_tid)
         return plans
 
     @classmethod
     @Controller.require_authentication
     def get_plan_for_edit_repeat_task(cls, edit_repeat_tid):
+        UserController.check_task_available(cls._user_login_id, edit_repeat_tid)
+
         plans = cls._plan_storage.get_plans(edit_repeat_tid=edit_repeat_tid)
         return plans
 
     @classmethod
     @Controller.require_authentication
     def get_exclude_type(cls, plan_id, number):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         exclude_type = cls._plan_storage.get_exclude_type(plan_id, number)
         return exclude_type
 
     @classmethod
     @Controller.require_authentication
     def get_tid_for_edit_repeat(cls, plan_id, number):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         tid = cls._plan_storage.get_tid_for_edit_repeat(plan_id, number)
         return tid
 
     @classmethod
     @Controller.require_authentication
     def get_plans_by_id(cls, plan_id):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         plans = cls._plan_storage.get_plans(plan_id=plan_id)
         return plans
 
@@ -854,6 +995,8 @@ class PlanController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_repeat_number_for_task(cls, plan_id, task):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         start = task.supposed_start_time
         if start is None:
             start = task.supposed_end_time
@@ -887,6 +1030,8 @@ class PlanController(Controller):
     @Controller.require_authentication
     def get_repeats_by_time_range(cls, plan_id, time_range, strong=False,
                                   with_exclude=False):
+        UserController.check_plan_available(cls._user_login_id, plan_id)
+
         plans = cls._plan_storage.get_plans(plan_id=plan_id)
         if plans is None or len(plans) == 0:
             return []
@@ -927,6 +1072,8 @@ class PlanController(Controller):
 
 class ProjectController(Controller):
 
+    _log_tag = 'ProjectController'
+
     @classmethod
     @Controller.require_authentication
     def save_project(cls, name):
@@ -952,19 +1099,11 @@ class ProjectController(Controller):
     @classmethod
     @Controller.require_authentication
     def fetch_projects(cls, pid=None, name=None):
-        filter = ProjectStorageAdapter.Filter()
-        filter.creator(cls._user_login_id)
-        if pid is not None:
-            filter.pid(pid)
-        if name is not None:
-            filter.name(name)
-
-        projects = cls._project_storage.get_projects(filter)
+        projects = cls._project_storage.get_projects(cls._user_login_id, name, pid)
         return projects
 
     @classmethod
-    @Controller.require_authentication
-    def remove_project(cls, pid):
+    def remove_project_for_user(cls, uid, pid):
         default_project = cls.get_default_project_for_user(Controller._user_login_id)
         if default_project is not None and default_project.pid == pid:
             return False
@@ -979,7 +1118,15 @@ class ProjectController(Controller):
 
     @classmethod
     @Controller.require_authentication
+    def remove_project(cls, pid):
+        UserController.check_project_available(cls._user_login_id, pid, True)
+        return cls.remove_project_for_user(cls._user_login_id, pid)
+
+    @classmethod
+    @Controller.require_authentication
     def edit_project(cls, pid, name=Controller._not_edit_field_flag):
+        UserController.check_project_available(cls._user_login_id, pid, True)
+
         default_project = cls.get_default_project_for_user(Controller._user_login_id)
         if default_project is not None and default_project.pid == pid:
             return False
@@ -990,7 +1137,74 @@ class ProjectController(Controller):
         success = cls._project_storage.edit_project(args)
         return success
 
+    @classmethod
+    @Controller.require_authentication
+    def invite_user_to_project(cls, pid, uid, admin=False, guest=False):
+        UserController.check_project_available(cls._user_login_id, pid, True)
 
-def timestamp_to_display(timestamp):
-    if timestamp is not None:
-        return datetime.datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%d-%m-%Y')
+        if (admin and guest) or (not admin and not guest):
+            return False
+
+        users = UserController.fetch_user(uid=uid)
+        if users is None or len(users) == 0:
+            logging.get_logger(cls._log_tag).warning('Trying to invite non-existent user')
+            return False
+
+        projects = cls.fetch_projects(pid=pid)
+        if projects is None or len(projects) == 0:
+            logging.get_logger(cls._log_tag).warning('Trying to invite into non-existent project')
+            return False
+
+        project = projects[0]
+        invite_kind = project.get_user_kind(uid)
+        if invite_kind is not None:
+            logging.get_logger(cls._log_tag).warning('Trying to invite user which already invited')
+            return False
+
+        if uid == cls._user_login_id:
+            logging.get_logger(cls._log_tag).warning('Trying to invite themself')
+            return False
+
+        if admin:
+            success = cls._project_storage.add_admin_to_project(pid, uid)
+            return success
+
+        if guest:
+            success = cls._project_storage.add_guest_to_project(pid, uid)
+            return success
+
+    @classmethod
+    @Controller.require_authentication
+    def exclude_user_from_project(cls, pid, uid):
+        UserController.check_project_available(cls._user_login_id, pid)
+
+        users = UserController.fetch_user(uid=uid)
+        if users is None or len(users) == 0:
+            logging.get_logger(cls._log_tag).warning('Trying to exclude non-existent user')
+            return False
+
+        user_kind = cls._project_storage.get_user_kind(pid, uid)
+        if user_kind is None:
+            logging.get_logger(cls._log_tag).warning('Trying to exclude user which not invited')
+            return False
+
+        projects = ProjectController.fetch_projects(pid=pid)
+        if projects is None or len(projects) == 0:
+            logging.get_logger(cls._log_tag).warning('Trying to exclude from non-existent project')
+            return False
+        
+        project = projects[0]
+        current_kind = project.get_user_kind(cls._user_login_id)
+        if current_kind == Project.UserKind.GUEST and uid != cls._user_login_id:
+            logging.get_logger(cls._log_tag).error(('Trying to exclude a participiant by guest '
+                'and this participiant is not himself'))
+            raise PermissionDenied
+        if project.creator == uid:
+            logging.get_logger(cls._log_tag).error('Trying to exclude project creator')
+            raise PermissionDenied
+
+        if user_kind == Project.UserKind.ADMIN:
+            success = cls._project_storage.remove_admin_from_project(pid, uid)
+        else:
+            success = cls._project_storage.remove_guest_from_project(pid, uid)
+        return success

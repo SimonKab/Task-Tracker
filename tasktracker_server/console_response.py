@@ -1,5 +1,7 @@
 from .model.task import Task, Priority, Status
-from .requests.controllers import TaskController, PlanController, ProjectController
+from .model.project import Project
+from .model.user import User
+from .requests.controllers import TaskController, PlanController, ProjectController, UserController
 import datetime
 
 def show_tasks_in_console(tasks, shift=0):
@@ -21,7 +23,7 @@ def show_tasks_in_console(tasks, shift=0):
         projects = ProjectController.fetch_projects(pid=task.pid)
         if projects is not None and len(projects) != 0:
             projects_str = ','.join([project.name for project in projects])
-            data[i+1][1] += '({})'.format(projects_str)
+            data[i+1][1] += ' ({})'.format(projects_str)
 
     plan_controller = PlanController()
     for i in range(len(tasks)):
@@ -87,8 +89,45 @@ def show_notifications_in_console(tasks):
     print_in_groups(data, 0)
 
 def show_projects(projects):
-    data = [[str(project.pid), project.name] for project in projects]
+    data = [[str(project.pid), project.name, project] for project in projects]
     data.insert(0, ['PID', 'NAME'])
+    print_in_groups(data, 0)
+
+def show_projects_for_user(projects, uid):
+    data = [[str(project.pid), project.name] for project in projects]
+    data.insert(0, ['PID', 'NAME', 'STATUS', 'PARTICIPIANTS'])
+    for i in range(len(projects)):
+        project = projects[i]
+        user_kind = project.get_user_kind(uid)
+        if uid == project.creator:
+            user_kind_str = 'creator'
+        elif user_kind == Project.UserKind.ADMIN:
+            user_kind_str = 'admin'
+        else:
+            user_kind_str = 'guest'
+        data[i+1].append(user_kind_str)
+
+        participiants = str()
+        participiants += "Admins: "
+        admins = [project.creator]
+        if project.admins is not None:
+            admins.extend(project.admins)
+        
+        for admin_id in admins:
+            users = UserController.fetch_user(uid=admin_id)
+            if users is not None and len(users) != 0:
+                user = users[0]
+                participiants += '{} ({}) '.format(user.uid, user.login)
+                
+        if project.guests is not None:
+            participiants += "Guests: "
+            for guest_id in project.guests:
+                users = UserController.fetch_user(uid=guest_id)
+                if users is not None and len(users) != 0:
+                    user = users[0]
+                    participiants += '{} ({}) '.format(user.uid, user.login)
+
+        data[i+1].append(participiants)
     print_in_groups(data, 0)
 
 def show_overdue_in_console(tasks):
@@ -210,7 +249,7 @@ def show_invalid_parent_id_error(parent_tid):
 
 def timestamp_to_display(timestamp):
     if timestamp is not None:
-        return datetime.datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%d-%m-%Y')
+        return datetime.datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%d-%m-%Y %H:%M')
 
 def shift_to_display(shift):
     if shift is not None:

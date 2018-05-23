@@ -2,6 +2,8 @@ from ..model.task import Task, Status
 from ..model.user import User
 from ..model.plan import Plan
 from ..model.project import Project
+import tasktracker_server.logging as logging
+
 import os
 from itertools import filterfalse
 from peewee import *
@@ -80,7 +82,7 @@ class ProjectRelationsTableModel(BaseTableModel):
         GUEST = 1
 
     class Meta:
-        table_name = 'project'
+        table_name = 'project_relations'
 
 _DEFAULT_DB_NAME = 'tasktracker.db'
 
@@ -196,15 +198,17 @@ class PlanRelationsTableModel(BaseTableModel):
 
 class StorageAdapter():
 
-    def __init__(self, db_file=_DEFAULT_DB_NAME):
+    def __init__(self, db_file=_DEFAULT_DB_NAME, db=None):
         if db_file is None:
             db_file = _DEFAULT_DB_NAME
 
-        self.db = SqliteDatabase(db_file)
-        self.db_file = db_file
-        self.connections_opened = 0
+        if db is None:
+            self.db = SqliteDatabase(db_file)
+            _db_proxy.initialize(self.db)
+        else:
+            self.db = db
 
-        _db_proxy.initialize(self.db)
+        self.db_file = db_file
 
         if not self._is_database_exists():
             self._create_db()
@@ -223,29 +227,20 @@ class StorageAdapter():
         self.db.create_tables(tables)
 
     def connect(self):
-        # self.db.connect(reuse_if_open=True)
-        # self.connections_opened += 1
         pass
 
     def disconnect(self):
-        # self.connections_opened -= 1
-        # if self.connections_opened <= 0:
-        #     self.db.close()
         pass
 
     def is_connected(self):
-        # return not self.db.is_closed()
         return True
 
     def _raise_if_disconnected(self):
-        # if not self.is_connected():
-        #     raise ValueError("Connection is not established")
         pass
 
 class TaskStorageAdapter(StorageAdapter):
 
-    def __init__(self, db_name=None):
-        super().__init__(db_name)
+    _log_tag = 'TaskStorageAdapter'
 
     def get_tasks(self, filter=None):
         if filter is None:
@@ -275,16 +270,18 @@ class TaskStorageAdapter(StorageAdapter):
                             notificate_supposed_end=task.notificate_supposed_end,
                             notificate_deadline=task.notificate_deadline)
         rows_modified = task_to_save.save()
-        
-        return rows_modified == 1
-    
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Task was saved: {}'.format(task_to_save.__data__))
+        return success
+
     def get_last_saved_task(self):
         task_model = TaskTableModel.select().order_by(TaskTableModel.tid.desc()).get()
         if task_model is not None:
             return task_model.to_task()
 
     def remove_task(self, tid):
-        plan_storage = PlanStorageAdapter(self.db_file)
+        plan_storage = PlanStorageAdapter(self.db_file, self.db)
         plans = plan_storage.get_plans(common_tid=tid)
         if plans is not None and len(plans) != 0:
             for plan in plans:
@@ -298,15 +295,15 @@ class TaskStorageAdapter(StorageAdapter):
                 success = plan_storage.restore_plan_repeat(plan.plan_id, number)
                 if not success:
                     return False
-            
 
         tasks_to_delete = [tid]
         while len(tasks_to_delete) != 0:
             tid_to_delete = tasks_to_delete.pop(0)
-
             rows_deleted = TaskTableModel.delete().where(TaskTableModel.tid == tid_to_delete).execute()
             if rows_deleted == 0:
                 return False
+            else:
+                logging.get_logger(self._log_tag).info('Task was removed: {}'.format(tid_to_delete))
 
             child_tasks = TaskTableModel.select().where(TaskTableModel.parent_tid == tid_to_delete)
             for child_task in child_tasks:
@@ -331,7 +328,10 @@ class TaskStorageAdapter(StorageAdapter):
         task_to_edit.notificate_deadline = task.notificate_deadline
         
         rows_modified = task_to_edit.save()
-        return rows_modified == 1
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Task was edited: {}'.format(task_to_edit.__data__))
+        return success
 
     def edit_task(self, task_field_dict):
         tid = task_field_dict[Task.Field.tid]
@@ -438,8 +438,7 @@ class TaskStorageAdapter(StorageAdapter):
 
 class PlanStorageAdapter(StorageAdapter):
 
-    def __init__(self, db_name=None):
-        super().__init__(db_name)
+    _log_tag = 'PlanStorageAdapter'
 
     def _get_all_relations(self):
         return PlanRelationsTableModel.select()
@@ -527,6 +526,8 @@ class PlanStorageAdapter(StorageAdapter):
         plan_models = PlanTableModel.select().where(PlanTableModel.plan_id == plan_id)
         shift = plan_models[0].shift
         if start_time_shift % shift == 0:
+            logging.get_logger(self._log_tag).info(('For {} excludes were recalculated '
+                'due start time shift changed').format(plan_id))
             conditions = ((PlanRelationsTableModel.plan_id == plan_id) 
                 & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
             relations = PlanRelationsTableModel.select().where(conditions)
@@ -549,6 +550,7 @@ class PlanStorageAdapter(StorageAdapter):
         rows_modified = plan_to_save.save()
         if rows_modified != 1:
             return False
+        logging.get_logger(self._log_tag).info('Plan was saved: {}'.format(plan_to_save.__data__))
 
         plan_common_relation = PlanRelationsTableModel(plan_id=plan_to_save.plan_id,
                                                     tid=plan.tid,
@@ -557,6 +559,7 @@ class PlanStorageAdapter(StorageAdapter):
         rows_modified = plan_common_relation.save()
         if rows_modified != 1:
             return False
+        logging.get_logger(self._log_tag).info('Plan common relation was added: {}'.format(plan_common_relation.__data__))
 
         if plan.exclude is not None and len(plan.exclude) != 0:
             for exclude_number in plan.exclude:
@@ -572,7 +575,10 @@ class PlanStorageAdapter(StorageAdapter):
                                 number=number,
                                 kind=PlanRelationsTableModel.Kind.DELETED)
         rows_modified = plan_deleted_relations.save()
-        return rows_modified == 1
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Repeat {} was deleted in plan {}'.format(number, plan_id))
+        return success
 
     def edit_plan_repeat(self, plan_id, number, tid):
         type = self.get_exclude_type(plan_id, number)
@@ -583,7 +589,11 @@ class PlanStorageAdapter(StorageAdapter):
                                 number=number,
                                 kind=PlanRelationsTableModel.Kind.EDITED)
         rows_modified = plan_deleted_relations.save()
-        return rows_modified == 1
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Repeat {} in plan {} was edited: {}'\
+                .format(number, plan_id, plan_deleted_relations.__data__))
+        return success
 
     def chagne_edit_plan_repeat_to_delete(self, plan_id, number):
         success = self.restore_plan_repeat(plan_id, number)
@@ -595,25 +605,34 @@ class PlanStorageAdapter(StorageAdapter):
         conditions = ((PlanRelationsTableModel.plan_id == plan_id)
             & (PlanRelationsTableModel.number == number))
         rows_deleted = PlanRelationsTableModel.delete().where(conditions).execute()
-        return rows_deleted != -1
+        success = rows_deleted != -1
+        if success:
+            logging.get_logger(self._log_tag).info('Repeat {} in plan {} was restored'.format(number, plan_id))    
+        return success
 
     def restore_all_repeats(self, plan_id):
         conditions = ((PlanRelationsTableModel.plan_id == plan_id) 
                 & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
         rows_deleted = PlanRelationsTableModel.delete().where(conditions).execute()
-        return True
+        success = rows_deleted != 0
+        if success:
+            logging.get_logger(self._log_tag).info('All repeats in plan {} were restore'.format(plan_id))
+        return success
 
     def remove_plan(self, plan_id):
         rows_deleted = PlanTableModel.delete().where(PlanTableModel.plan_id == plan_id).execute()
         relations = PlanRelationsTableModel.select().where(PlanRelationsTableModel.plan_id == plan_id)
         if len(relations) != 0:
-            task_storage = TaskStorageAdapter(self.db_file)
+            task_storage = TaskStorageAdapter(self.db_file, self.db)
             for relation in relations:
                 if relation.tid is not None:
                     TaskTableModel.delete().where(TaskTableModel.tid == relation.tid).execute()
 
         PlanRelationsTableModel.delete().where(PlanRelationsTableModel.plan_id == plan_id).execute()
-        return rows_deleted == 1
+        success = rows_deleted == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Plan {} was deleted'.format(plan_id))
+        return success
 
     def edit_plan(self, plan_field_dict):
         plan_id = plan_field_dict[Plan.Field.plan_id]
@@ -626,6 +645,7 @@ class PlanStorageAdapter(StorageAdapter):
                 rows_modified = plan_model.save()
                 if rows_modified != 1:
                     return False
+                logging.get_logger(self._log_tag).info('End of plan {} was changed to {}'.format(plan_id, end))
 
         if Plan.Field.shift in plan_field_dict:
             shift = plan_field_dict[Plan.Field.shift]
@@ -636,6 +656,7 @@ class PlanStorageAdapter(StorageAdapter):
                 rows_modified = plan_model.save()
                 if rows_modified != 1:
                     return False
+                logging.get_logger(self._log_tag).info('Shift of plan {} was changed to {}'.format(plan_id, shift))
             
             conditions = ((PlanRelationsTableModel.plan_id == plan_id)
                 & (PlanRelationsTableModel.kind != PlanRelationsTableModel.Kind.COMMON))
@@ -647,16 +668,17 @@ class PlanStorageAdapter(StorageAdapter):
                     rows_modified = relation.save()
                     if rows_modified != 1:
                         return False
+                    logging.get_logger(self._log_tag).info('Repeat {} was shifted'.format(number))
                 else:
                     relation.delete_instance()
+                    logging.get_logger(self._log_tag).info('Repeat {} was removed'.format(number))
 
         return True
 
 
 class UserStorageAdapter(StorageAdapter):
 
-    def __init__(self, db_name=None):
-        super().__init__(db_name)
+    _log_tag = 'UserStorageAdapter'
 
     def check_user_existence(self, login):
         count = len(UserTableModel.select().where(UserTableModel.login == login))
@@ -680,8 +702,10 @@ class UserStorageAdapter(StorageAdapter):
                             password=user.password,
                             online=user.online)
         rows_modified = user_to_save.save()
-        
-        return rows_modified == 1
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('User {} was saved'.format(user_to_save.__data__))
+        return success
 
     def get_last_saved_user(self):
         user_model = UserTableModel.select().order_by(UserTableModel.uid.desc()).get()
@@ -689,7 +713,7 @@ class UserStorageAdapter(StorageAdapter):
             return user_model.to_user()
 
     def delete_user(self, uid):
-        task_adapter = TaskStorageAdapter(self.db_file)
+        task_adapter = TaskStorageAdapter(self.db_file, self.db)
         filter = TaskStorageAdapter.Filter()
         filter.uid(uid)
         tasks = task_adapter.get_tasks(filter)
@@ -697,7 +721,10 @@ class UserStorageAdapter(StorageAdapter):
             task_adapter.remove_task(task.tid)
 
         rows_deleted = UserTableModel.delete().where(UserTableModel.uid == uid).execute()
-        return rows_deleted == 1
+        success = rows_deleted == 1
+        if success:
+            logging.get_logger(self._log_tag).info('User {} was deleted'.format(uid))
+        return success
 
     def edit_user(self, user_field_dict):
         uid = user_field_dict[User.Field.uid]
@@ -711,7 +738,10 @@ class UserStorageAdapter(StorageAdapter):
             user_to_edit.map_user_attr(field, value)
         rows_modified = user_to_edit.save()
 
-        return rows_modified == 1
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('User {} was edited'.format(user_to_edit.__data__))
+        return success
 
     class Filter():
 
@@ -732,30 +762,102 @@ class UserStorageAdapter(StorageAdapter):
 
 class ProjectStorageAdapter(StorageAdapter):
 
-    def __init__(self, db_name=None):
-        super().__init__(db_name)
+    _log_tag = 'ProjectStorageAdapter'
 
     def save_project(self, project):
         project_model = ProjectTableModel(creator=project.creator, name=project.name)
         rows_modified = project_model.save()
         return rows_modified == 1
 
-    def get_projects(self, filter=None):
-        if filter is None:
-            project_table_models = ProjectTableModel.select()
-        else:
-            conditions = filter.to_peewee_conditions()
-            if conditions is None or len(conditions) == 0:
-                project_table_models = ProjectTableModel.select()
-            else:
-                project_table_models = ProjectTableModel.select().where(*conditions)
+    def _get_all_relations(self):
+        return ProjectRelationsTableModel.select()
 
-        projects = [project_model.to_project() for project_model in project_table_models]
+    def get_projects(self, uid, name=None, pid=None):
+        projects = []
+        
+        project_table_models = ProjectTableModel.select().where(ProjectTableModel.creator == uid)
+        for project_model in project_table_models:
+            project = self._get_project_by_id(project_model.pid)
+            if project is not None:
+                projects.append(project)
+
+        admin_projects = self.get_all_admin_third_party_projects(uid)
+        guest_projects = self.get_all_guest_third_party_projects(uid)
+
+        projects.extend(admin_projects)
+        projects.extend(guest_projects)
+
+        result = []
+        for project in projects:
+            include = True
+            if name is not None:
+                if project.name != name:
+                    include = False
+            if pid is not None and include:
+                if project.pid != pid:
+                    include = False
+            if include:
+                result.append(project)
+
+        return result
+
+    def get_all_admin_third_party_projects(self, uid):
+        admin_project_models = ProjectRelationsTableModel.select().where((ProjectRelationsTableModel.uid == uid)
+                            & (ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.ADMIN))
+
+        projects = []
+        if len(admin_project_models) != 0:
+            for admin_project_model in admin_project_models:
+                project = self._get_project_by_id(admin_project_model.pid)
+                projects.append(project)
         return projects
 
+    def get_all_guest_third_party_projects(self, uid):
+        guest_project_models = ProjectRelationsTableModel.select().where((ProjectRelationsTableModel.uid == uid)
+                            & (ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.GUEST))
+
+        projects = []
+        if len(guest_project_models) != 0:
+            for guest_project_model in guest_project_models:
+                project = self._get_project_by_id(guest_project_model.pid)
+                projects.append(project)
+        return projects
+
+    def _get_project_by_id(self, pid):
+        project_models = ProjectTableModel.select().where(ProjectTableModel.pid == pid)
+        if len(project_models) == 0:
+            return None
+        project_model = project_models[0]
+
+        project = project_model.to_project()
+
+        admin_project_models = ProjectRelationsTableModel.select()\
+                            .where(((ProjectRelationsTableModel.pid == pid)
+                            & (ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.ADMIN)))
+        if len(admin_project_models) != 0:
+            admin_uids = []
+            for admin_project_model in admin_project_models:
+                admin_uids.append(admin_project_model.uid.uid)
+            project.admins = admin_uids
+
+        guest_project_models = ProjectRelationsTableModel.select()\
+                            .where(((ProjectRelationsTableModel.pid == pid)
+                            & (ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.GUEST)))
+        if len(guest_project_models) != 0:
+            guest_uids = []
+            for guest_project_model in guest_project_models:
+                guest_uids.append(guest_project_model.uid.uid)
+            project.guests = guest_uids
+
+        return project
+
     def remove_project(self, pid):
+        ProjectRelationsTableModel.delete().where(ProjectRelationsTableModel.pid == pid).execute()
         rows_deleted = ProjectTableModel.delete().where(ProjectTableModel.pid == pid).execute()
-        return rows_deleted != 0
+        success = rows_deleted != 0
+        if success:
+            logging.get_logger(self._log_tag).info('Project {} was removed'.format(pid))
+        return success
 
     def edit_project(self, project_fields_dict):
         pid = project_fields_dict[Project.Field.pid]
@@ -766,23 +868,65 @@ class ProjectStorageAdapter(StorageAdapter):
         if Project.Field.name in project_fields_dict:
             project_model.name = project_fields_dict[Project.Field.name]
             rows_modified = project_model.save()
-            return rows_modified == 1
+            success = rows_modified == 1
+            if success:
+                logging.get_logger(self._log_tag).info('Project {} was edited'.format(project_model.__data__))
+            return success
 
         return True
 
-    class Filter():
+    def get_user_kind(self, pid, uid):
+        projects = self.get_projects(uid, pid=pid)
+        if len(projects) == 0:
+            return None
+        return projects[0].get_user_kind(uid)
 
-        def __init__(self):
-            self._filter = []
+    def add_admin_to_project(self, pid, uid):
+        project_raltion_model = ProjectRelationsTableModel(pid=pid, 
+                                    uid=uid, kind=ProjectRelationsTableModel.Kind.ADMIN)
+        rows_modified = project_raltion_model.save()
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Admin {} was invited in project {}'.format(uid, pid))
+        return success
 
-        def pid(self, pid):
-            self._filter.append(ProjectTableModel.pid == pid)
+    def remove_admin_from_project(self, pid, uid):
+        filter = TaskStorageAdapter.Filter()
+        filter.pid(pid)
+        filter.uid(uid)
+        task_storage = TaskStorageAdapter(self.db_file, self.db)
+        tasks = task_storage.get_tasks(filter)
+        if tasks is not None and len(tasks) != 0:
+            projects = self.get_projects(uid=uid, pid=pid)
+            project = projects[0]
+            for task in tasks:
+                task.uid = project.creator
+                success = task_storage.edit_task_from_model(task)
+                if not success:
+                    return False
 
-        def name(self, name):
-            self._filter.append(ProjectTableModel.name == name)
+        conditions = (ProjectRelationsTableModel.pid == pid & ProjectRelationsTableModel.uid == uid
+                        & ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.ADMIN)
+        rows_deleted = ProjectRelationsTableModel.delete().where(conditions).execute()
+        success = rows_deleted == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Admin {} was removed from project {}'.format(uid, pid))
+        return success
 
-        def creator(self, uid):
-            self._filter.append(ProjectTableModel.creator == uid)
+    def add_guest_to_project(self, pid, uid):
+        project_raltion_model = ProjectRelationsTableModel(pid=pid, 
+                                    uid=uid, kind=ProjectRelationsTableModel.Kind.GUEST)
+        rows_modified = project_raltion_model.save()
+        success = rows_modified == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Guest {} was invited in project {}'.format(uid, pid))
+        return success
 
-        def to_peewee_conditions(self):
-            return self._filter
+    def remove_guest_from_project(self, pid, uid):
+        conditions = (ProjectRelationsTableModel.pid == pid & ProjectRelationsTableModel.uid == uid
+                        & ProjectRelationsTableModel.kind == ProjectRelationsTableModel.Kind.GUEST)
+        rows_deleted = ProjectRelationsTableModel.delete().where(conditions).execute()
+        success = rows_deleted == 1
+        if success:
+            logging.get_logger(self._log_tag).info('Guest {} was removed from project {}'.format(uid, pid))
+        return success

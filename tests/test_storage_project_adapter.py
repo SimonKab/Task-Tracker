@@ -9,7 +9,7 @@ from tasktracker_server import utils
 import os
 import datetime
 
-_TEST_DB = 'test_tasktracker.db'
+_TEST_DB = ':memory:'
 
 class TestProject(unittest.TestCase):
 
@@ -29,7 +29,7 @@ class TestProject(unittest.TestCase):
         success = self.storage.save_project(project)
         self.assertEqual(success, True)
 
-        projects_in_db = self.storage.get_projects()
+        projects_in_db = self.storage.get_projects(1)
         self.assertEqual(len(projects_in_db), 1)
 
         project.pid = 1
@@ -50,7 +50,7 @@ class TestProject(unittest.TestCase):
         success = self.storage.edit_project(project_fields)
         self.assertEqual(success, True)
 
-        projects_in_db = self.storage.get_projects()
+        projects_in_db = self.storage.get_projects(1)
         self.assertEqual(len(projects_in_db), 1)
 
         project.pid = 1
@@ -76,7 +76,7 @@ class TestProject(unittest.TestCase):
         success = self.storage.remove_project(2)
         self.assertEqual(success, True)
 
-        projects_in_db = self.storage.get_projects()
+        projects_in_db = self.storage.get_projects(1)
         self.assertEqual(len(projects_in_db), 1)
 
         project1.pid = 1
@@ -84,5 +84,5 @@ class TestProject(unittest.TestCase):
 
 
 
-    def tearDown(self):
-        os.remove(_TEST_DB)
+    # def tearDown(self):
+    #     os.remove(_TEST_DB)
