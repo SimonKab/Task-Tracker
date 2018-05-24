@@ -1,0 +1,3 @@
+[console_scripts]
+tt = tasktracker_project.start:run
+
