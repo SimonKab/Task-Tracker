@@ -1,10 +1,10 @@
-task.db
-id.db
 debug.py
+tm.conf
 tasktracker.db
-tasktracker.egg-info
+login
+
+tasktracker.egg-info/
 dist/
 info/
-login
 build/
 **/__pycache__
