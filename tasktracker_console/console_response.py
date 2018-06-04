@@ -1,12 +1,12 @@
 import datetime
 
-from tasktracker_project.tasktracker_core.model.task import Task, Priority, Status
-from tasktracker_project.tasktracker_core.model.project import Project
-from tasktracker_project.tasktracker_core.model.user import User
-from tasktracker_project.tasktracker_core.requests.controllers import TaskController
-from tasktracker_project.tasktracker_core.requests.controllers import PlanController
-from tasktracker_project.tasktracker_core.requests.controllers import ProjectController
-from tasktracker_project.tasktracker_core.requests.controllers import UserController
+from tasktracker_core.model.task import Task, Priority, Status
+from tasktracker_core.model.project import Project
+from tasktracker_core.model.user import User
+from tasktracker_core.requests.controllers import TaskController
+from tasktracker_core.requests.controllers import PlanController
+from tasktracker_core.requests.controllers import ProjectController
+from tasktracker_core.requests.controllers import UserController
 
 def show_tasks_in_console(tasks, shift=0):
     data = [[str(task.tid), str(task.pid), str(task.parent_tid), task.title, task.description, 

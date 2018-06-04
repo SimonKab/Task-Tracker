@@ -1,4 +1,4 @@
-import tasktracker_project.console_parser as parser
+import tasktracker_console.console_parser as parser
 
 def run():
     parser.parse()

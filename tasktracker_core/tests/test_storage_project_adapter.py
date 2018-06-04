@@ -2,13 +2,13 @@ import unittest
 import os
 import datetime
 
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import ProjectStorageAdapter
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import UserStorageAdapter
-from tasktracker_project.tasktracker_core.model.task import Task
-from tasktracker_project.tasktracker_core.model.project import Project
-from tasktracker_project.tasktracker_core.model.user import User
-from tasktracker_project.tasktracker_core.model.plan import Plan
-from tasktracker_project.tasktracker_core import utils
+from tasktracker_core.storage.sqlite_peewee_adapters import ProjectStorageAdapter
+from tasktracker_core.storage.sqlite_peewee_adapters import UserStorageAdapter
+from tasktracker_core.model.task import Task
+from tasktracker_core.model.project import Project
+from tasktracker_core.model.user import User
+from tasktracker_core.model.plan import Plan
+from tasktracker_core import utils
 
 _TEST_DB = ':memory:'
 

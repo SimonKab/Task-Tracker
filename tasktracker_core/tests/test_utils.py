@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from tasktracker_project.tasktracker_core import utils
+from tasktracker_core import utils
 
 class TestUtil(unittest.TestCase):
 

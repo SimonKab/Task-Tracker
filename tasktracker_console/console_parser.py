@@ -3,20 +3,20 @@ import datetime
 import re
 import json
 
-from tasktracker_project import console_response
-from tasktracker_project.tasktracker_core.requests.controllers import Controller
-from tasktracker_project.tasktracker_core.requests.controllers import TaskController
-from tasktracker_project.tasktracker_core.requests.controllers import UserController
-from tasktracker_project.tasktracker_core.requests.controllers import PlanController
-from tasktracker_project.tasktracker_core.requests.controllers import ProjectController
-from tasktracker_project.tasktracker_core.requests.controllers import InvalidTimeError
-from tasktracker_project.tasktracker_core.requests.controllers import InvalidParentIdError
-from tasktracker_project.tasktracker_core.requests.controllers import TaskTrackerError
-from tasktracker_project.tasktracker_core.requests.controllers import UserAlreadyExistsError
-from tasktracker_project.tasktracker_core.requests.controllers import UserNotExistsError
-from tasktracker_project.tasktracker_core.requests.controllers import NotAuthenticatedError
-from tasktracker_project.tasktracker_core.requests.controllers import InvalidProjectIdError
-from tasktracker_project.tasktracker_core import utils
+from tasktracker_console import console_response
+from tasktracker_core.requests.controllers import Controller
+from tasktracker_core.requests.controllers import TaskController
+from tasktracker_core.requests.controllers import UserController
+from tasktracker_core.requests.controllers import PlanController
+from tasktracker_core.requests.controllers import ProjectController
+from tasktracker_core.requests.controllers import InvalidTimeError
+from tasktracker_core.requests.controllers import InvalidParentIdError
+from tasktracker_core.requests.controllers import TaskTrackerError
+from tasktracker_core.requests.controllers import UserAlreadyExistsError
+from tasktracker_core.requests.controllers import UserNotExistsError
+from tasktracker_core.requests.controllers import NotAuthenticatedError
+from tasktracker_core.requests.controllers import InvalidProjectIdError
+from tasktracker_core import utils
 
 class Parser:
     PREFIX = '--'

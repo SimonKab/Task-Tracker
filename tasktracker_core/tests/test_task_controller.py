@@ -1,12 +1,12 @@
 import unittest
 import datetime
 
-from tasktracker_project.tasktracker_core.requests.controllers import TaskController, Controller, InvalidParentIdError
-from tasktracker_project.tasktracker_core.model.task import Task, Status, Priority
-from tasktracker_project.tasktracker_core.model.plan import Plan
-from tasktracker_project.tasktracker_core.model.user import User
-from tasktracker_project.tasktracker_core.model.project import Project
-from tasktracker_project.tasktracker_core import utils
+from tasktracker_core.requests.controllers import TaskController, Controller, InvalidParentIdError
+from tasktracker_core.model.task import Task, Status, Priority
+from tasktracker_core.model.plan import Plan
+from tasktracker_core.model.user import User
+from tasktracker_core.model.project import Project
+from tasktracker_core import utils
 
 class TestTaskController(unittest.TestCase):
 

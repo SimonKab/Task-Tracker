@@ -7,9 +7,9 @@ setup(
     descriprion='something unuseful',
     packages=find_packages(),
     include_package_date=False,
-    install_requires=['peewee', 'logging'],
+    install_requires=['peewee'],
     entry_points={
         'console_scripts':
-            ['tt = tasktracker_project.start:run']
+            ['tt = .start:run']
     }
 )

@@ -1,16 +1,16 @@
 import copy
 import datetime
 
-from tasktracker_project.tasktracker_core.model.task import Task, Status, Priority
-from tasktracker_project.tasktracker_core.model.user import User, SuperUser
-from tasktracker_project.tasktracker_core.model.plan import Plan
-from tasktracker_project.tasktracker_core.model.project import Project
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import TaskStorageAdapter
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import UserStorageAdapter
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import PlanStorageAdapter
-from tasktracker_project.tasktracker_core.storage.sqlite_peewee_adapters import ProjectStorageAdapter
-import tasktracker_project.tasktracker_core.utils as utils
-import tasktracker_project.tasktracker_core.logging as logging
+from tasktracker_core.model.task import Task, Status, Priority
+from tasktracker_core.model.user import User, SuperUser
+from tasktracker_core.model.plan import Plan
+from tasktracker_core.model.project import Project
+from tasktracker_core.storage.sqlite_peewee_adapters import TaskStorageAdapter
+from tasktracker_core.storage.sqlite_peewee_adapters import UserStorageAdapter
+from tasktracker_core.storage.sqlite_peewee_adapters import PlanStorageAdapter
+from tasktracker_core.storage.sqlite_peewee_adapters import ProjectStorageAdapter
+import tasktracker_core.utils as utils
+import tasktracker_core.logging as logging
 
 class TaskTrackerError(Exception):
     pass

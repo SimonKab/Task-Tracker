@@ -3,11 +3,11 @@ from itertools import filterfalse
 
 from peewee import *
 
-from tasktracker_project.tasktracker_core.model.task import Task, Status
-from tasktracker_project.tasktracker_core.model.user import User
-from tasktracker_project.tasktracker_core.model.plan import Plan
-from tasktracker_project.tasktracker_core.model.project import Project
-import tasktracker_project.tasktracker_core.logging as logging
+from tasktracker_core.model.task import Task, Status
+from tasktracker_core.model.user import User
+from tasktracker_core.model.plan import Plan
+from tasktracker_core.model.project import Project
+import tasktracker_core.logging as logging
 
 class TidAlreadyExistsError(Exception):
 
