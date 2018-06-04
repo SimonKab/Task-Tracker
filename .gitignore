@@ -1,6 +1,10 @@
 task.db
 id.db
-/tasktracker_server/__pycache__/
-/tasktracker_server/storage/__pycache__/
-/tasktracker_server/model/__pycache__/
-/tasktracker_server/requests/__pycache__/
+debug.py
+tasktracker.db
+tasktracker.egg-info
+dist/
+info/
+login
+build/
+**/__pycache__

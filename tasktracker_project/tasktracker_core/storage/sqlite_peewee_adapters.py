@@ -331,7 +331,7 @@ class TaskStorageAdapter(StorageAdapter):
         rows_modified = task_to_edit.save()
         success = rows_modified == 1
         if success:
-            logging.get_logger(self._log_tag).info('Task was edited: {}'.format(task_to_edit.__data__))
+            logging.get_logger(self._log_tag).info('Task was edited: %s', task_to_edit.__data__)
         return success
 
     def edit_task(self, task_field_dict):

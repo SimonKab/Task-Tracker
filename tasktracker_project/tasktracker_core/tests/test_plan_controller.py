@@ -219,6 +219,11 @@ class TestPlanController(unittest.TestCase):
         task.supposed_end_time = utils.shift_datetime_in_millis(datetime.datetime.today(), datetime.timedelta(days=11))
         task.notificate_supposed_start=True
 
+        if task.supposed_start_time - TaskStorageAdapterMock._saved_task.supposed_start_time == 1:
+            task.supposed_start_time -= 1
+        if task.supposed_end_time - TaskStorageAdapterMock._saved_task.supposed_end_time == 1:
+            task.supposed_end_time -= 1
+
         self.assertEqual(TaskStorageAdapterMock._saved_task.__dict__, task.__dict__)
         self.assertEqual(TaskStorageAdapterMock._removed_tid, 2)
         self.assertEqual(PlanStorageAdapterMock._plan_id, 1)
