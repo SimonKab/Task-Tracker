@@ -3,7 +3,7 @@ tm.conf
 tasktracker.db
 login
 
-tasktracker.egg-info/
+*.egg-info
 dist/
 info/
 build/
