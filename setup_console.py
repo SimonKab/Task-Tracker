@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 from os.path import join, dirname
 
 setup(
-    name='tasktracker',
+    name='tasktracker_console',
     version='1.0',
-    descriprion='something unuseful',
+    description='something unuseful',
     packages=find_packages(),
-    include_package_date=False,
+    include_package_data=False,
     install_requires=['peewee'],
     entry_points={
         'console_scripts':
