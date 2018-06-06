@@ -81,6 +81,8 @@ class Parser:
     LOGIN = 'login'
     LOGOUT = 'logout'
 
+    CONFIG = 'config'
+
     _with_prefix = None
 
     @staticmethod
@@ -139,14 +141,12 @@ def configure_logger(config):
 
 def parse():
     # first of all we should configure core
-    configure_core()
-
-    if Controller.is_authenticated():
-        TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+    
 
     parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX,
                                      description="Hello) It's task tracker")
     
+    parser.add_argument(Parser.prefix().CONFIG, type=str, help='Specify path to config file')
     root_subparsers = parser.add_subparsers(dest=Parser.ACTION, help='Choose object to work with')
 
     init_task_parser(root_subparsers)
@@ -592,6 +592,12 @@ def init_login_parser(root):
     login_parser.add_argument(Parser.LOGIN, type=str)
 
 def proccess_parsed(parsed):
+    proccess_config(parsed)
+    configure_core()
+
+    if Controller.is_authenticated():
+        TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+
     if parsed.action == Parser.TASK:
         proccess_task(parsed)
     if parsed.action == Parser.USER:
@@ -602,6 +608,11 @@ def proccess_parsed(parsed):
         proccess_overall_task(parsed)
     if parsed.action == Parser.PROJECT:
         proccess_project(parsed)
+
+def proccess_config(parsed):
+    path_to_config = getattr(parsed, Parser.CONFIG, None)
+    if path_to_config is not None:
+        ConfigReader.config_path = path_to_config 
 
 def proccess_task(parsed):
     if parsed.task == Parser.ADD:
