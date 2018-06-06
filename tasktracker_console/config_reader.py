@@ -16,6 +16,9 @@ class ConfigReader():
         self.low_log_path = None
         self.high_log_level = None
         self.low_log_level = None
+        self.enable_logging = None
+        self.enable_high_logging = None
+        self.enable_low_logging = None
 
     def read_config(self):
         config = configparser.ConfigParser()
@@ -40,6 +43,9 @@ class ConfigReader():
             self.low_log_path = logger_config.get('low_log_path')
             self.high_log_level = logger_config.get('high_log_level')
             self.low_log_level = logger_config.get('low_log_level')
+            self.enable_logging = logger_config.getboolean('enable_logging')
+            self.enable_high_logging = logger_config.getboolean('enable_high_logging')
+            self.enable_low_logging = logger_config.getboolean('enable_low_logging')
 
         return config
 

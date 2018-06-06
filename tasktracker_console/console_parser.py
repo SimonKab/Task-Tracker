@@ -18,6 +18,7 @@ from tasktracker_core.requests.controllers import NotAuthenticatedError
 from tasktracker_core.requests.controllers import InvalidProjectIdError
 from tasktracker_core import utils
 from tasktracker_console.config_reader import ConfigReader
+from tasktracker_core.logging import LoggerConfig
 
 class Parser:
     PREFIX = '--'
@@ -93,18 +94,52 @@ class Parser:
 
         return Parser._with_prefix
 
-def parse():
+def configure_core():
     config = ConfigReader()
     config.read_config()
 
-    if config.db_path is not None:
-        Controller.set_database_file(config.db_path)
+    configure_logger(config)
+    configure_database(config)
+    
+    # uses logger and database so should be called last
+    configure_user(config)
 
+def configure_user(config):
     login = config.username
     if login is not None and len(login) != 0:
         users = UserController.fetch_user(login=login)
         if users is not None and len(users) != 0:
             Controller.authentication(users[0].uid)
+
+def configure_database(config):
+     if config.db_path is not None:
+        Controller.set_database_file(config.db_path)
+
+def configure_logger(config):
+    if config.high_log_path is not None:
+        LoggerConfig.high_log_path = config.high_log_path
+    if config.low_log_path is not None:
+        LoggerConfig.low_log_path = config.low_log_path
+
+    if config.high_log_level is not None:
+        high_log_level = LoggerConfig.get_logger_level_by_str(config.high_log_level)
+        if high_log_level is not None:
+            LoggerConfig.high_log_level = high_log_level
+    if config.low_log_level is not None:
+        low_log_level = LoggerConfig.get_logger_level_by_str(config.low_log_level)
+        if low_log_level is not None:
+            LoggerConfig.low_log_level = low_log_level
+
+    if config.enable_logging is not None:
+        LoggerConfig.logging_enabled = config.enable_logging
+    if config.enable_high_logging is not None:
+        LoggerConfig.high_logging_enabled = config.enable_high_logging
+    if config.enable_low_logging is not None:
+        LoggerConfig.low_logging_enabled = config.enable_low_logging
+
+def parse():
+    # first of all we should configure core
+    configure_core()
 
     if Controller.is_authenticated():
         TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))

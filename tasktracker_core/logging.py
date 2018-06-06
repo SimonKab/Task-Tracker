@@ -9,7 +9,9 @@ class LoggerConfig():
     DEFAULT_PATH_HIGH = utils.get_file_in_home_folder('high.log')
     DEFAULT_PATH_LOW = utils.get_file_in_home_folder('low.log')
 
-    logging_enabled = False
+    logging_enabled = True
+    high_logging_enabled = True
+    low_logging_enabled = True
     custom_logger_enabled = False
 
     high_log_path = DEFAULT_PATH_HIGH
@@ -44,11 +46,30 @@ class LoggerConfig():
         file_low_logging_handler.setFormatter(formatter)
 
         logger.setLevel(logging.NOTSET)
-        logger.addHandler(file_high_logging_handler)
-        logger.addHandler(file_low_logging_handler)
+        if cls.high_logging_enabled:
+            logger.addHandler(file_high_logging_handler)
+        if cls.low_logging_enabled:
+            logger.addHandler(file_low_logging_handler)
+
+    @staticmethod
+    def get_logger_level_by_str(str_level):
+        if str_level == 'CRITICAL':
+            return logging.CRITICAL
+        if str_level == 'ERROR':
+            return logging.ERROR
+        if str_level == 'WARNING':
+            return logging.WARNING
+        if str_level == 'INFO':
+            return logging.INFO
+        if str_level == 'DEBUG':
+            return logging.DEBUG
+        if str_level == 'NOTSET':
+            return logging.NOTSET
 
     @classmethod
     def get_core_root_logger(cls):
+        logging.getLogger().setLevel(logging.DEBUG)
+
         core_logger = logging.getLogger('core')
         if not cls.custom_logger_enabled:
             cls.init_default_logger(core_logger)
