@@ -1,5 +1,8 @@
 import datetime
 import re
+from pathlib import Path
+import platform
+from os import path
 
 def datetime_to_milliseconds(datetime_inst):
     if datetime_inst is None:
@@ -69,3 +72,7 @@ def parse_time(arg, relative_support=True):
                 return now_d
 
     return None
+
+def get_home_folder():
+    if platform.system() == 'Linux':
+        return path.join(str(Path.home()), 'tasktracker')

@@ -153,7 +153,7 @@ class Controller():
         users = UserController.fetch_user(uid=user_id)
         success = users is not None and len(users) != 0
         if success:
-            logging.get_logger(cls._log_tag).error('Authenticated {}'.format(user_id))
+            logging.get_logger(cls._log_tag).info('Authenticated {}'.format(user_id))
             cls._user_login_id = user_id
         else:
             logging.get_logger(cls._log_tag).error('Authentication error for id {}'.format(user_id))
@@ -394,7 +394,6 @@ class TaskController(Controller):
         if pid is None:
             default_project = ProjectController.get_default_project_for_user(Controller._user_login_id)
             if default_project is None:
-                print('HELLO')
                 return False
             pid = default_project.pid
 
