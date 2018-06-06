@@ -7,7 +7,8 @@ from tasktracker_core.model.task import Task, Status
 from tasktracker_core.model.user import User
 from tasktracker_core.model.plan import Plan
 from tasktracker_core.model.project import Project
-import tasktracker_core.logging as logging
+from tasktracker_core import logging
+from tasktracker_core import utils
 
 class TidAlreadyExistsError(Exception):
 
@@ -85,7 +86,7 @@ class ProjectRelationsTableModel(BaseTableModel):
     class Meta:
         table_name = 'project_relations'
 
-_DEFAULT_DB_NAME = 'tasktracker.db'
+_DEFAULT_DB_FILE_PATH = utils.get_file_in_home_folder('tasktracker.db')
 
 class TaskTableModel(BaseTableModel):
     tid = IntegerField(primary_key=True)
@@ -199,9 +200,9 @@ class PlanRelationsTableModel(BaseTableModel):
 
 class StorageAdapter():
 
-    def __init__(self, db_file=_DEFAULT_DB_NAME, db=None):
+    def __init__(self, db_file=_DEFAULT_DB_FILE_PATH, db=None):
         if db_file is None:
-            db_file = _DEFAULT_DB_NAME
+            db_file = _DEFAULT_DB_FILE_PATH
 
         if db is None:
             self.db = SqliteDatabase(db_file)
@@ -215,6 +216,11 @@ class StorageAdapter():
             self._create_db()
 
     def _is_database_exists(self):
+        if self.db_file == ':memory:':
+            # if db is in memory, we should init it always, so return False
+            # to say that database need to be initialized
+            return False
+
         try:
             open(self.db_file, 'r').close()
         except FileNotFoundError:
@@ -222,6 +228,9 @@ class StorageAdapter():
         return True
 
     def _create_db(self):
+        if self.db_file != ':memory:':
+            utils.create_file_if_not_exists(self.db_file)
+
         tables = [TaskTableModel, UserTableModel, 
             PlanTableModel, PlanRelationsTableModel, 
             ProjectTableModel, ProjectRelationsTableModel]

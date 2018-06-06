@@ -17,6 +17,7 @@ from tasktracker_core.requests.controllers import UserNotExistsError
 from tasktracker_core.requests.controllers import NotAuthenticatedError
 from tasktracker_core.requests.controllers import InvalidProjectIdError
 from tasktracker_core import utils
+from tasktracker_console.config_reader import ConfigReader
 
 class Parser:
     PREFIX = '--'
@@ -92,47 +93,14 @@ class Parser:
 
         return Parser._with_prefix
 
-def write_current_login(login):
-    with open('login', 'w') as file:
-      file.write(login)
-
-def read_current_login():
-    try:
-        open('login', 'r').close()
-    except FileNotFoundError:
-        open('login', 'w').close()
-
-    with open('login', 'r') as file:
-      login = file.readline()
-
-    return login
-
-def read_config():
-    config = []
-    try:
-        with open('tm.conf', 'r') as config:
-            config_content = config.read()
-            if len(config_content) == 0:
-                return
-            else:
-                config = json.loads(config_content)
-    except FileNotFoundError:
-        pass
-    
-    if 'default_login' in config:
-        current = read_current_login()
-        if current is None or len(current) == 0:
-            default_login = config['default_login']
-            write_current_login(default_login)
-            try:
-                UserController.save_user(login=default_login)
-            except UserAlreadyExistsError:
-                pass
-
 def parse():
-    read_config()
+    config = ConfigReader()
+    config.read_config()
 
-    login = read_current_login()
+    if config.db_path is not None:
+        Controller.set_database_file(config.db_path)
+
+    login = config.username
     if login is not None and len(login) != 0:
         users = UserController.fetch_user(login=login)
         if users is not None and len(users) != 0:
@@ -1019,9 +987,10 @@ def proccess_user_show(parsed):
         online_filter = False
 
     users = UserController.fetch_user(uid, login, online_filter)
-    current = read_current_login()
+    config = ConfigReader()
+    config.read_config()
     for user in users:
-        if user.login == current:
+        if user.login == config.username:
             user.online = True
     if users is not None:
         console_response.show_users_in_console(users)
@@ -1164,6 +1133,7 @@ def proccess_login(parsed):
     login = getattr(parsed, Parser.LOGIN, None)
     users = UserController.fetch_user(login=login)
     if users is not None and len(users) != 0:
-        write_current_login(login)
+        config = ConfigReader()
+        config.write_username_in_config(login)
     else:
         console_response.show_common_error('User {} not exists'.format(login))

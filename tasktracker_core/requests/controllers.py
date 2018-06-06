@@ -116,6 +116,13 @@ class Controller():
     _not_edit_field_flag = object()
 
     @classmethod
+    def set_database_file(cls, db_file):        
+        cls._plan_storage = PlanStorageAdapter(db_file=db_file)
+        cls._task_storage = TaskStorageAdapter(db_file=db_file)
+        cls._user_storage = UserStorageAdapter(db_file=db_file)
+        cls._project_storage = ProjectStorageAdapter(db_file=db_file)
+
+    @classmethod
     def init_storage_adapters(cls, plan_storage_adapter=None,
                               task_storage_adapter=None,
                               user_storage_adapter=None,

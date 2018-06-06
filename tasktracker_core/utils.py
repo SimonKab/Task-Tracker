@@ -2,7 +2,7 @@ import datetime
 import re
 from pathlib import Path
 import platform
-from os import path
+from os import path, makedirs
 
 def datetime_to_milliseconds(datetime_inst):
     if datetime_inst is None:
@@ -76,3 +76,15 @@ def parse_time(arg, relative_support=True):
 def get_home_folder():
     if platform.system() == 'Linux':
         return path.join(str(Path.home()), 'tasktracker')
+
+def get_file_in_home_folder(file_name):
+    return path.join(get_home_folder(), file_name)
+
+def create_file_if_not_exists(file_path):
+    if not path.exists(path.dirname(file_path)):
+        makedirs(path.dirname(file_path))
+
+    try:
+        open(file_path, 'r').close()
+    except FileNotFoundError:
+        open(file_path, 'w').close()
