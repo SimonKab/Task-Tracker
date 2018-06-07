@@ -1,4 +1,4 @@
-# Calendar and TODO-list together
+# Calendar and TODO-list together written in Python
 
 Provides functionality of TODO-list and calendar-like apps: it is list of planned or single tasks, grouped in projects. User can work with timing by different ways: tasks with extended time range, planned tasks with excludes.
 
@@ -32,9 +32,8 @@ If parent has active status, none of the children can not be pending
 ### How to use
 
 First of all you should authenticate user, which id will be used to perform actions
-
-'''#python
-is_authenticated = Controller.authentication(user_id_to_authenticate)'''
+  			
+	is_authenticated = Controller.authentication(user_id_to_authenticate)		
 
 If id is not valid, AuthenticationError will be raised
 
@@ -48,32 +47,26 @@ After authentication you can work with other controllers
 
 For example, adding task:
 
-'''#python
-success = TaskController.save_task(title='New task', description='This is new task', priority=Priority.HIGH, status=Status.ACTIVE)'''
+	success = TaskController.save_task(title='New task', description='This is new task', priority=Priority.HIGH, status=Status.ACTIVE)
 
 Editing task:
 
-'''#python
-success = TaskController.edit_task(task_id=1, title='Edited task', status=Status.COMPLETED)'''
+	success = TaskController.edit_task(task_id=1, title='Edited task', status=Status.COMPLETED)
 
 Getting repeat numbers of a plan by time range:
 
-'''#python
-time_range = () # time range im milliseconds. You can use utils module to convert datetime to milliseconds
-numbers = PlanController.get_repeats_by_time_range(plan_id=10, time_range)'''
+	time_range = () # time range im milliseconds. You can use utils module to convert datetime to milliseconds
+	numbers = PlanController.get_repeats_by_time_range(plan_id=10, time_range)
 
 To get tasks which are inside of time range including planned repeats:
 
-'''#python
-time_range = () # time range im milliseconds
-tasks = TaskController.fetch_tasks(time_range=time_range)''
+	time_range = () # time range im milliseconds
+	tasks = TaskController.fetch_tasks(time_range=time_range)
 
 To get timeless tasks:
 
-'''#python
-tasks = TaskController.fetch_tasks(timeless=True)'''
+	tasks = TaskController.fetch_tasks(timeless=True)
 
 Combined:
 
-'''#python
-tasks = TaskController.fetch_tasks(time_range=time_range, timeless=True)'''
+	tasks = TaskController.fetch_tasks(time_range=time_range, timeless=True)
