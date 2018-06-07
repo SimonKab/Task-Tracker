@@ -1,4 +1,4 @@
-# Calendar and TODO-list together written in Python
+# TaskTracker: Calendar and TODO-list together written in Python
 
 Provides functionality of TODO-list and calendar-like apps: it is list of planned or single tasks, grouped in projects. User can work with timing by different ways: tasks with extended time range, planned tasks with excludes.
 
@@ -29,7 +29,23 @@ If parent has active status, none of the children can not be pending
 20. Guest can only read project
 21. User is name, password and email
 
-### How to use
+### Structure
+
+#### Library
+
+Library is a core of TaskTracker. All activities about managing tasks, users and projects located inside of core.
+
+You can use library to create your own task tracker, organizer, TODO-list, etc. Library provides you base, that you can use to create your own features and additionals over it.
+
+See tasktracker_core package.
+
+#### Console
+
+You can use console part to try core in action. Console part let you test your features easily.
+
+See tasktracker_console package.
+
+### How to use - Library
 
 First of all you should authenticate user, which id will be used to perform actions
   			
@@ -70,3 +86,67 @@ To get timeless tasks:
 Combined:
 
 	tasks = TaskController.fetch_tasks(time_range=time_range, timeless=True)
+
+### How to use - Console
+
+There is four menus to use: task, plan, project, user. In each of them there are commands like: add, show, delete, edit and others.
+
+When first used, it is necessary to create first user.
+
+Do it like this:
+
+    $ tt user add --login new-login
+
+After that you can login in app:
+
+    $ tt login new-login
+
+Now you can work with app. All actions will be performed on behalf of the new-login user
+
+If you will not login, you will get message: 
+
+    Error. User was not authenticated
+
+Type next command to see most relevant tasks and notifications:
+
+    $ tt task
+
+Type next command to see all tasks of current user:
+
+    $ tt task show
+
+Type next command to see all tasks from now to 7 days forward:
+
+    $ tt task show --start today now --end today+7 
+
+To see all tasks in a project with id 10:
+
+    $ tt project show --pid 10
+
+To see what projects exist and check their ids:
+
+    $ tt project
+
+### How to install
+
+Install proccess is same for library and console
+
+Run script eaither setup_core.py to install core or setup_console.py to install console like this:
+
+    $ python setup_core.py install
+    $ python setup_console.py install
+
+After installing core you can import tasktracker_core like regular python module
+
+    import tasktracker_core
+
+Command to start console app is 'tt'. So after installing console you can run app like this:
+
+    $ tt
+
+There is also start.py script. If you dont want to reinstall app after your changes, you can just run start.py script like this:
+
+    $ python start.py
+    that equals to
+    $ tt
+
