@@ -31,6 +31,7 @@ User is name, password and email
 
 requests package provide front interface of library. 
 You should use this package to work with library
+To find out how to use library, check docs of requests package
 
 model package defines models of library: task, plan, user, project
 storage package manages storing data in database

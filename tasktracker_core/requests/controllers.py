@@ -199,8 +199,7 @@ class Controller():
 
     @classmethod
     def get_authenticated_id(cls):
-        '''Returns id of authenticated user or None if nobody was authenticated
-        '''
+        '''Returns id of authenticated user or None if nobody was authenticated'''
 
         return cls._user_login_id
 
