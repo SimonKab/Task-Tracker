@@ -1,6 +1,6 @@
 ### Core
 
-1) Log need external config file
+1) Log need external config file - DONE
 
 ### Web
 

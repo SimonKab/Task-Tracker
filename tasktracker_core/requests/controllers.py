@@ -1,3 +1,15 @@
+'''Defines functionality of library
+
+Provide controllers for tasks, projects, users and plans
+Defines errors. All errors of library are inherited from TaskTrackerError
+
+Controller is a parent class for all controllers. Provide authentication of user
+TaskController manage tasks
+PlanController manage plans of tasks
+UserController manage users
+ProjectController manage projects
+'''
+
 import copy
 import datetime
 
@@ -116,6 +128,13 @@ class Controller():
     _not_edit_field_flag = object()
 
     @classmethod
+    def set_database_file(cls, db_file):        
+        cls._plan_storage = PlanStorageAdapter(db_file=db_file)
+        cls._task_storage = TaskStorageAdapter(db_file=db_file)
+        cls._user_storage = UserStorageAdapter(db_file=db_file)
+        cls._project_storage = ProjectStorageAdapter(db_file=db_file)
+
+    @classmethod
     def init_storage_adapters(cls, plan_storage_adapter=None,
                               task_storage_adapter=None,
                               user_storage_adapter=None,
@@ -153,7 +172,7 @@ class Controller():
         users = UserController.fetch_user(uid=user_id)
         success = users is not None and len(users) != 0
         if success:
-            logging.get_logger(cls._log_tag).error('Authenticated {}'.format(user_id))
+            logging.get_logger(cls._log_tag).info('Authenticated {}'.format(user_id))
             cls._user_login_id = user_id
         else:
             logging.get_logger(cls._log_tag).error('Authentication error for id {}'.format(user_id))
@@ -180,8 +199,7 @@ class Controller():
 
     @classmethod
     def get_authenticated_id(cls):
-        '''Returns id of authenticated user or None if nobody was authenticated
-        '''
+        '''Returns id of authenticated user or None if nobody was authenticated'''
 
         return cls._user_login_id
 
@@ -394,7 +412,6 @@ class TaskController(Controller):
         if pid is None:
             default_project = ProjectController.get_default_project_for_user(Controller._user_login_id)
             if default_project is None:
-                print('HELLO')
                 return False
             pid = default_project.pid
 
@@ -463,8 +480,7 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_overdue_tasks(cls, time):
-        '''Return all tasks with status overdue before today
-        '''
+        '''Return all tasks with status overdue before today'''
         filter = cls._task_storage.Filter()
         filter.uid(cls._user_login_id)
         filter.to_time(time)
@@ -588,8 +604,7 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_most_valuable_task(cls, plan_id):
-        '''Returns the first not overdue repeat or None of there is not so
-        '''
+        '''Returns the first not overdue repeat or None of there is not so'''
         number = 0
         while True:
             tasks = cls.get_plan_tasks_by_numbers(plan_id, [number])
@@ -810,8 +825,7 @@ class UserController(Controller):
 
     @classmethod
     def fetch_user(cls, uid=None, login=None, online=None):
-        '''Return users by specified params
-        '''
+        '''Return users by specified params'''
 
         filter = UserStorageAdapter.Filter()
         if uid is not None:

@@ -17,6 +17,8 @@ from tasktracker_core.requests.controllers import UserNotExistsError
 from tasktracker_core.requests.controllers import NotAuthenticatedError
 from tasktracker_core.requests.controllers import InvalidProjectIdError
 from tasktracker_core import utils
+from tasktracker_console.config_reader import ConfigReader
+from tasktracker_core.logging import LoggerConfig
 
 class Parser:
     PREFIX = '--'
@@ -79,6 +81,8 @@ class Parser:
     LOGIN = 'login'
     LOGOUT = 'logout'
 
+    CONFIG = 'config'
+
     _with_prefix = None
 
     @staticmethod
@@ -92,58 +96,57 @@ class Parser:
 
         return Parser._with_prefix
 
-def write_current_login(login):
-    with open('login', 'w') as file:
-      file.write(login)
+def configure_core():
+    config = ConfigReader()
+    config.read_config()
 
-def read_current_login():
-    try:
-        open('login', 'r').close()
-    except FileNotFoundError:
-        open('login', 'w').close()
-
-    with open('login', 'r') as file:
-      login = file.readline()
-
-    return login
-
-def read_config():
-    config = []
-    try:
-        with open('tm.conf', 'r') as config:
-            config_content = config.read()
-            if len(config_content) == 0:
-                return
-            else:
-                config = json.loads(config_content)
-    except FileNotFoundError:
-        pass
+    configure_logger(config)
+    configure_database(config)
     
-    if 'default_login' in config:
-        current = read_current_login()
-        if current is None or len(current) == 0:
-            default_login = config['default_login']
-            write_current_login(default_login)
-            try:
-                UserController.save_user(login=default_login)
-            except UserAlreadyExistsError:
-                pass
+    # uses logger and database so should be called last
+    configure_user(config)
 
-def parse():
-    read_config()
-
-    login = read_current_login()
+def configure_user(config):
+    login = config.username
     if login is not None and len(login) != 0:
         users = UserController.fetch_user(login=login)
         if users is not None and len(users) != 0:
             Controller.authentication(users[0].uid)
 
-    if Controller.is_authenticated():
-        TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+def configure_database(config):
+     if config.db_path is not None:
+        Controller.set_database_file(config.db_path)
+
+def configure_logger(config):
+    if config.high_log_path is not None:
+        LoggerConfig.high_log_path = config.high_log_path
+    if config.low_log_path is not None:
+        LoggerConfig.low_log_path = config.low_log_path
+
+    if config.high_log_level is not None:
+        high_log_level = LoggerConfig.get_logger_level_by_str(config.high_log_level)
+        if high_log_level is not None:
+            LoggerConfig.high_log_level = high_log_level
+    if config.low_log_level is not None:
+        low_log_level = LoggerConfig.get_logger_level_by_str(config.low_log_level)
+        if low_log_level is not None:
+            LoggerConfig.low_log_level = low_log_level
+
+    if config.enable_logging is not None:
+        LoggerConfig.logging_enabled = config.enable_logging
+    if config.enable_high_logging is not None:
+        LoggerConfig.high_logging_enabled = config.enable_high_logging
+    if config.enable_low_logging is not None:
+        LoggerConfig.low_logging_enabled = config.enable_low_logging
+
+def parse():
+    # first of all we should configure core
+    
 
     parser = argparse.ArgumentParser(prefix_chars=Parser.PREFIX,
                                      description="Hello) It's task tracker")
     
+    parser.add_argument(Parser.prefix().CONFIG, type=str, help='Specify path to config file')
     root_subparsers = parser.add_subparsers(dest=Parser.ACTION, help='Choose object to work with')
 
     init_task_parser(root_subparsers)
@@ -589,6 +592,12 @@ def init_login_parser(root):
     login_parser.add_argument(Parser.LOGIN, type=str)
 
 def proccess_parsed(parsed):
+    proccess_config(parsed)
+    configure_core()
+
+    if Controller.is_authenticated():
+        TaskController.find_overdue_tasks(utils.datetime_to_milliseconds(utils.now()))
+
     if parsed.action == Parser.TASK:
         proccess_task(parsed)
     if parsed.action == Parser.USER:
@@ -599,6 +608,11 @@ def proccess_parsed(parsed):
         proccess_overall_task(parsed)
     if parsed.action == Parser.PROJECT:
         proccess_project(parsed)
+
+def proccess_config(parsed):
+    path_to_config = getattr(parsed, Parser.CONFIG, None)
+    if path_to_config is not None:
+        ConfigReader.config_path = path_to_config 
 
 def proccess_task(parsed):
     if parsed.task == Parser.ADD:
@@ -1019,9 +1033,10 @@ def proccess_user_show(parsed):
         online_filter = False
 
     users = UserController.fetch_user(uid, login, online_filter)
-    current = read_current_login()
+    config = ConfigReader()
+    config.read_config()
     for user in users:
-        if user.login == current:
+        if user.login == config.username:
             user.online = True
     if users is not None:
         console_response.show_users_in_console(users)
@@ -1164,6 +1179,7 @@ def proccess_login(parsed):
     login = getattr(parsed, Parser.LOGIN, None)
     users = UserController.fetch_user(login=login)
     if users is not None and len(users) != 0:
-        write_current_login(login)
+        config = ConfigReader()
+        config.write_username_in_config(login)
     else:
         console_response.show_common_error('User {} not exists'.format(login))
