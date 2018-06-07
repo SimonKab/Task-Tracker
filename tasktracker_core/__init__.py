@@ -1,6 +1,6 @@
 '''Core of tasktracker app
 
-Provide core functions of tasktracker app.
+Provide core functions of tasktracker app:
 Managing tasks, planned tasks, users and projects.
 Task has title and description
 Task may be with time range or without.

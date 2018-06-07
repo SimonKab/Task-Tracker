@@ -1,3 +1,15 @@
+'''Defines functionality of library
+
+Provide controllers for tasks, projects, users and plans
+Defines errors. All errors of library are inherited from TaskTrackerError
+
+Controller is a parent class for all controllers. Provide authentication of user
+TaskController manage tasks
+PlanController manage plans of tasks
+UserController manage users
+ProjectController manage projects
+'''
+
 import copy
 import datetime
 
@@ -469,8 +481,7 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_overdue_tasks(cls, time):
-        '''Return all tasks with status overdue before today
-        '''
+        '''Return all tasks with status overdue before today'''
         filter = cls._task_storage.Filter()
         filter.uid(cls._user_login_id)
         filter.to_time(time)
@@ -594,8 +605,7 @@ class TaskController(Controller):
     @classmethod
     @Controller.require_authentication
     def get_most_valuable_task(cls, plan_id):
-        '''Returns the first not overdue repeat or None of there is not so
-        '''
+        '''Returns the first not overdue repeat or None of there is not so'''
         number = 0
         while True:
             tasks = cls.get_plan_tasks_by_numbers(plan_id, [number])
@@ -816,8 +826,7 @@ class UserController(Controller):
 
     @classmethod
     def fetch_user(cls, uid=None, login=None, online=None):
-        '''Return users by specified params
-        '''
+        '''Return users by specified params'''
 
         filter = UserStorageAdapter.Filter()
         if uid is not None:
