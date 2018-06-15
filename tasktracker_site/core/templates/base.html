@@ -4,8 +4,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <title>Task Tracker</title>
     <!-- Bootstrap core CSS -->
@@ -16,79 +15,96 @@
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
 </head>
 
-<body id="intro">
+<body>
 
-<!--Main Navigation-->
-<header>
-    <!--Navbar-->
-    <nav class="navbar navbar-default fixed-top indigo">
-        <div class="container">
+    <div class="wrapper">
 
-            <!-- Navbar brand -->
-            <a class="navbar-brand text-white">Task Tracker</a>
+        <div class="navigation">
 
-            <!-- Collapse button -->
-            <button class="navbar-toggler" type="button" data-toggle="collapse"
-                    data-target="#basicExampleNav"
-                    aria-controls="basicExampleNav"
-                    aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <!--Main Navigation-->
+            <header>
+
+                <nav class="navbar navbar-expand-lg navbar-dark fixed-top indigo">
+                    <!-- Navbar brand -->
+                    <a class="navbar-brand text-white">Task Tracker</a>
+                    
+                    <ul class="navbar-nav ml-auto">
+                        {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                
+                            <i class="fa fa-user"></i> {{ user }} </a>
+                            
+                            <div class="dropdown-menu dropdown-menu-right dropdown-info">
+                                <a class="dropdown-item" href="{% url 'core:logout' %}">Log out</a>
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                </nav>
+
+            </header>
+            <!--Main Navigation-->
 
         </div>
-    </nav>
-    <!--/.Navbar-->
 
-</header>
-<!--Main Navigation-->
+        <div class="content">
 
-<!--Main layout-->
-<main style='margin-bottom:10%'>
+            <!--Main layout-->
+            <main style='margin-bottom:10%'>
 
-    <div class="container">
+                <div class="container">
 
-        {% block errors %}
-        {% endblock %}
+                    {% block errors %}
+                    {% endblock %}
+
+                </div>
+
+                <!--Main container-->
+                <div class="container ml-0">
+
+                    {% block content %}
+                    {% endblock %}
+
+                </div>
+                <!--Main container-->
+
+            </main>
+            <!--Main layout-->
+        
+        </div>
+
+        <div class="footer">
+
+            <!--Footer-->
+            <footer class="page-footer indigo mt-5" style='margin-top:10%'>
+                <!--Copyright-->
+                <div class="footer-copyright py-3 text-center">
+                    © 2018 Copyright:
+                    <a href="https://bitbucket.org/simonkab/">
+                        Simon K </a>
+                </div>
+                <!--/.Copyright-->
+
+            </footer>
+            <!--/.Footer-->
+
+        </div>
+
+        <!-- SCRIPTS -->
+        <!-- JQuery -->
+        <script type="text/javascript"
+                src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+        <!-- Bootstrap tooltips -->
+        <script type="text/javascript" src="{% static 'js/popper.min.js' %}"></script>
+        <!-- Bootstrap core JavaScript -->
+        <script type="text/javascript"
+                src="{% static 'js/bootstrap.min.js' %}"></script>
+        <!-- MDB core JavaScript -->
+        <script type="text/javascript" src="{% static 'js/mdb.js' %}"></script>
 
     </div>
-
-    <!--Main container-->
-    <div class="container">
-
-        {% block content %}
-        {% endblock %}
-
-    </div>
-    <!--Main container-->
-
-</main>
-<!--Main layout-->
-{% block add_buttons %}
-{% endblock %}
-<!--Footer-->
-<footer class="page-footer align-bottom indigo mt-4">
-    <!--Copyright-->
-    <div class="footer-copyright py-3 text-center">
-        © 2018 Copyright:
-        <a href="https://bitbucket.org/simonkab/">
-            Simon K </a>
-    </div>
-    <!--/.Copyright-->
-
-</footer>
-<!--/.Footer-->
-
-<!-- SCRIPTS -->
-<!-- JQuery -->
-<script type="text/javascript"
-        src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
-<!-- Bootstrap tooltips -->
-<script type="text/javascript" src="{% static 'js/popper.min.js' %}"></script>
-<!-- Bootstrap core JavaScript -->
-<script type="text/javascript"
-        src="{% static 'js/bootstrap.min.js' %}"></script>
-<!-- MDB core JavaScript -->
-<script type="text/javascript" src="{% static 'js/mdb.js' %}"></script>
 
 </body>
 

@@ -1,55 +1,88 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class='container'>
+<div class="container ml-5">
 
-    <div class='card w-50 center-block mb-5' style='margin: 0 auto;'>
-        <h2 class='card-title text-center mt-4 indigo-text'>
-            <strong>Login</strong>
-        </h2>
+        <!--Grid row-->
+        <div class="row wow fadeIn ml-5" style="visibility: visible; animation-name: fadeIn;">
 
-        <div class="card-body">
+          <!--Grid column-->
+          <div class="col-md-6 mb-4 white-text text-center text-md-left">
 
-            <form>
-                <div class="md-form">
-                    <input type="text" class="form-control" id="login_inp">
-                    <label for="login_inp">Your login</label>
+            <h1 class="display-4 font-weight-bold">New Task Tracker by Simon</h1>
+
+            <hr class="hr-light">
+
+            <p>
+              <strong>Task tracker is not the best! It is not like WOW, you know...</strong>
+            </p>
+
+            <p class="mb-4 d-none d-md-block">
+              <strong>It can store and show tasks, projects, 
+              even do something with planned tasks. Pretends to be useful!</strong>
+            </p>
+
+            <a target="_blank" class='btn btn-lg indigo' href={% url 'core:register' %}>Register now</a>
+
+          </div>
+          <!--Grid column-->
+
+          <div class="col-md-6" align="center">
+
+             <div class='card w-75 center-block fill'>
+                <h2 class='card-title text-center mt-4 indigo-text'>
+                    <strong>Login</strong>
+                </h2>
+
+                <div class="card-body" align="left">
+
+                    <form method="post" autocomplete="off">
+                        {% csrf_token %}
+
+                        {% if common_error %}
+                        {% for error in common_error %}
+                            <h6 class='red-text'>
+                                {{ error }}
+                            </h6>
+                        {% endfor %}
+                        {% endif %}
+
+                        <div class="md-form mb-0">
+                            <input name='username' type="text" class="form-control" id="login_inp">
+                            <label for="login_inp">Your login</label>
+                        </div>
+
+                        {% if form.errors|length > 0 %}
+                        {% for error in form.username.errors %}
+                            <h6 class='red-text'>
+                                {{ error }}
+                            </h6>
+                        {% endfor %}
+                        {% endif %}
+
+                        <div class="md-form mb-0">
+                            <input name='password' type="password" class="form-control" id="password_inp">
+                            <label for="password_inp">Your password</label>
+                        </div>
+
+                        {% if form.errors|length > 0 %}
+                        {% for error in form.password.errors %}
+                            <h6 class='red-text'>
+                                {{ error }}
+                            </h6>
+                        {% endfor %}
+                        {% endif %}
+
+                        <button type="submit" class="btn btn-block mt-4 indigo">Submit</button>
+                    </form>
+
                 </div>
-                <div class="md-form">
-                    <input type="password" class="form-control" id="password_inp">
-                    <label for="password_inp">Your password</label>
-                </div>
-                <button type="submit" class="btn btn-block indigo">Submit</button>
-            </form>
+          </div>
 
         </div>
-    </div>
+        <!--Grid row-->
 
-    <div class='card w-50 center-block' style='margin: 0 auto;'>
-        <h2 class='card-title text-center mt-4 indigo-text'>
-            <strong>Registration</strong>
-        </h2>
-
-        <div class="card-body">
-
-            <form>
-                <div class="md-form">
-                    <input type="text" class="form-control" id="login_inp">
-                    <label for="login_inp">Your login</label>
-                </div>
-                <div class="md-form">
-                    <input type="password" class="form-control" id="password_inp">
-                    <label for="password_inp">Your password</label>
-                </div>
-                <div class="md-form">
-                    <input type="password" class="form-control" id="password_inp">
-                    <label for="password_inp">Password again</label>
-                </div>
-                <button type="submit" class="btn btn-block indigo">Submit</button>
-            </form>
-
-        </div>
-    </div>
+      </div>
 
 </div>
 {% endblock %}

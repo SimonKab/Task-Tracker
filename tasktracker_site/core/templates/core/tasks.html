@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container ml-0">
+
+        <div class="col w-50 ml-0">
+
+            <div class='card w-50 ml-0 center-block'>
+
+                <h2 class='card-title text-center mt-4 indigo-text'>
+                    <strong>Projects</strong>
+                </h2>
+
+                <div class='card-body' align="center">
+                    <div class="list-group">
+
+                        {% for project in projects %}
+
+                            <a class="list-group-item list-group-item-action waves-effect borderless">{{ project }}</a>
+
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+</div>
+{% endblock %}
