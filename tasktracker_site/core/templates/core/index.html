@@ -1,6 +1,55 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class='container-fluid'>
-    
+
+<div class='container'>
+
+    <div class='card w-50 center-block mb-5' style='margin: 0 auto;'>
+        <h2 class='card-title text-center mt-4 indigo-text'>
+            <strong>Login</strong>
+        </h2>
+
+        <div class="card-body">
+
+            <form>
+                <div class="md-form">
+                    <input type="text" class="form-control" id="login_inp">
+                    <label for="login_inp">Your login</label>
+                </div>
+                <div class="md-form">
+                    <input type="password" class="form-control" id="password_inp">
+                    <label for="password_inp">Your password</label>
+                </div>
+                <button type="submit" class="btn btn-block indigo">Submit</button>
+            </form>
+
+        </div>
+    </div>
+
+    <div class='card w-50 center-block' style='margin: 0 auto;'>
+        <h2 class='card-title text-center mt-4 indigo-text'>
+            <strong>Registration</strong>
+        </h2>
+
+        <div class="card-body">
+
+            <form>
+                <div class="md-form">
+                    <input type="text" class="form-control" id="login_inp">
+                    <label for="login_inp">Your login</label>
+                </div>
+                <div class="md-form">
+                    <input type="password" class="form-control" id="password_inp">
+                    <label for="password_inp">Your password</label>
+                </div>
+                <div class="md-form">
+                    <input type="password" class="form-control" id="password_inp">
+                    <label for="password_inp">Password again</label>
+                </div>
+                <button type="submit" class="btn btn-block indigo">Submit</button>
+            </form>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}
