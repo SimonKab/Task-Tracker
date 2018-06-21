@@ -10,7 +10,7 @@
 
 {% block content %}
 
-<div class="container block-center ml-0 mt-5">
+<div class="mt-5" align="center">
 
         <div class="fixed-action-btn" style="z-index: 10000">
             <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
@@ -18,9 +18,9 @@
             </a>
         </div>
 
-        <div class="row">
+        <div class="row w-50" align="left">
 
-            <div class="col-4 ml-0 mr-5">
+<!--             <div class="col-4 ml-0 mr-5">
 
                 <div class='card w-100 ml-0 center-block'>
 
@@ -45,9 +45,9 @@
 
                 </div>
 
-            </div>
+            </div> -->
 
-            <div class="col w-100 ml-5">
+            <div class="col">
 
                 {% if tasks|length > 0 %}
                     {% for task in tasks %}
