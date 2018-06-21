@@ -1,0 +1,219 @@
+<div class="card w-100">
+
+    {% if no_tasks %}
+        
+        <div class='card-title ml-5 mt-4'>
+            <h3>There is not tasks yet</h3>
+        </div>
+
+    {% else %}
+
+        <div class='card-title'>
+
+            {% if task.status == 0 %}
+            <form id="my_form" method="post">
+                {% csrf_token %}  
+                <div id="status_container_{{task.tid}}" align="center">
+                    <div class="row">
+                        <div class="col pr-0" align="center">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="pending, {{task.tid}}">
+                                <h6 class="grey-text w-100 mb-0 ml-3">PENDING</h6>
+                            </button>
+                        </div>
+                        <div class="col-1 mr-2 pl-0" align="center">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="pending, {{task.tid}}">
+                                <i class='material-icons grey-text'>arrow_downward</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+
+            {% if task.status == 1 %}
+            <form id="my_form" method="post">
+                {% csrf_token %}  
+                <div class="pink" id="status_container_{{task.tid}}" align="center">
+                    <div class="row">
+                        <div class="col pr-0" align="center">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="active, {{task.tid}}">
+                                <h6 class="white-text w-100 mb-0 ml-3"><strong>ACTIVE</strong></h6>
+                            </button>
+                        </div>
+                        <div class="col-1 mr-2 pl-0" align="center">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="active, {{task.tid}}">
+                                <i class='material-icons white-text'>arrow_downward</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+
+            {% if task.status == 2 %}
+            <form id="my_form" method="post">
+                {% csrf_token %}  
+                <div class="indigo" id="status_container_{{task.tid}}" align="center">
+                    <div class="row">
+                        <div class="col pr-0" align="center">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="completed, {{task.tid}}">
+                                <h6 class="white-text w-100 mb-0 ml-3"><strong>COMPLETED</strong></h6>
+                            </button>
+                        </div>
+                        <div class="col-1 mr-2 pl-0" align="center">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="completed, {{task.tid}}">
+                                <i class='material-icons white-text'>arrow_downward</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+
+            {% if task.status == 3 %}
+            <form id="my_form" method="post">
+                {% csrf_token %}  
+                <div style="background: #e8eaf6" id="status_container_{{task.tid}}" align="center">
+                    <div class="row">
+                        <div class="col pr-0" align="center">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="overdue, {{task.tid}}">
+                                <h6 class="text-black-50 w-100 mb-0 ml-3"><strong>OVERDUE</strong></h6>
+                            </button>
+                        </div>
+                        <div class="col-1 mr-2 pl-0" align="center">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="overdue, {{task.tid}}">
+                                <i class='material-icons text-black-50'>arrow_downward</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+
+            <div class="row ml-5 mr-4 mt-5">
+
+                <div class="col">
+                    <div class="row">
+                        {% if task.priority != 1 %}
+                            <div class="col-auto pl-0 align-middle mt-2">
+                                {% if task.priority == 0 %}
+                                    <div id="priority-circle" class="grey"></div>
+                                {% endif %}
+                                {% if task.priority == 2 %}
+                                    <div id="priority-circle" class="orange"></div>
+                                {% endif %}
+                                {% if task.priority == 3 %}
+                                    <div id="priority-circle" class="red"></div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        <div class="col">
+                            <h3>{{ task.title }}</h3>
+                        </div>
+                    </div>
+                    {% if task.description %}
+                    <div class="row">
+                        <h6 class="grey-text ml-3">{{ task.description }}</h6>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="col-lg-auto pr-0" align="right">
+                    <div class="row mb-0 pb-0">
+                        <a class="waves-effect">
+                            <i class='material-icons pink-text' data-toggle="modal" data-target="#deleteModalConfirm_{{ task.tid }}">delete</i>
+                        </a>
+                    </div>
+                    <dir class="row pl-0 mt-0 pt-0">
+                        <a class="waves-effect" href="{% url 'core:edit_task' task.tid %}">
+                            <i class='material-icons pink-text'>edit</i>
+                        </a>
+                    </dir>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+
+            {% if task.deadline_time or task.supposed_start_time or task.supposed_end_time %}
+            <hr style="height: 1px;">
+            <div class="ml-5">
+                {% if task.supposed_start_time %}
+                <div class="row">
+                    <div class="col-1">
+                        <i class='material-icons grey-text'>play_arrow</i>
+                    </div>
+                    <div class="col">
+                        <label class="text-black-50">{{ task.supposed_start_time }}</label>
+                    </div>
+                    {% if task.notificate_supposed_start %}
+                    <div class="col">
+                        <label class="indigo-text">notification enabled</label>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if task.supposed_end_time %}
+                <div class="row">
+                    <div class="col-1">
+                        <i class='material-icons grey-text mr-4'>pause</i>
+                    </div>
+                    <div class="col">
+                        <label class="text-black-50">{{ task.supposed_end_time }}</label>
+                    </div>
+                    {% if task.notificate_supposed_end %}
+                    <div class="col">
+                        <label class="indigo-text">notification enabled</label>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if task.deadline_time %}
+                <div class="row">
+                    <div class="col-1">
+                        <i class='material-icons grey-text mr-4'>stop</i>
+                    </div>
+                    <div class="col">
+                        <label class="text-black-50">{{ task.deadline_time }}</label>
+                    </div>
+                    {% if task.notificate_deadline %}
+                    <div class="col">
+                        <label class="indigo-text">notification enabled</label>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if task.parent_id %}
+            <hr style="height: 1px;">
+            <div class="container pl-5">
+                <label class="text-black-50 mr-3">The parent is:</label>
+                <a href="#" class="indigo-text">Hi mom</a>
+            </div>
+            {% endif %}
+        </div>
+
+        
+
+    {% endif %}
+
+    <div class="modal fade" id="deleteModalConfirm_{{ task.tid }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Do you want to delete task? {{ task.tid }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn grey" data-dismiss="modal">No</button>
+                <a type="button" class="btn indigo" href="{% url 'core:delete_task' task.tid %}">Yes</a>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>

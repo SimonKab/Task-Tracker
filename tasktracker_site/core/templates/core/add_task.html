@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% load staticfiles %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+</script>
+
+{% endblock %}
+
+{% block styles %}
+
+<link href="{% static 'css/bootstrap-datetimepicker.css' %}" rel="stylesheet">
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.9.0/moment-with-locales.js"></script>
+
+<script type="text/javascript"
+                src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class=''>
+
+    <div class='card w-50 center-block' style='margin: 0 auto;'>
+        <h2 class='card-title text-center mt-4 indigo-text'>
+            <strong>New task</strong>
+        </h2>
+
+        <div class="card-body">
+
+            <form method="post" autocomplete="off">
+                {% csrf_token %}         
+
+                <div class="md-form mb-0">
+                    <input name="title" type="text" class="form-control" id="title_inp" {% if form.title.value %} value="{{ form.title.value }}" {% endif %}>
+                    <label for="title_inp">Title</label>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.title.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <div class="md-form mb-0">
+                    <input name="description" type="text" class="form-control" id="description_inp"
+                            {% if form.description.value %} value="{{ form.description.value }}" {% endif %}>
+                    <label for="description_inp">Description</label>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.description.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <h6 class="indigo-text ml-3 mt-5">Priority</h6>
+                <div class="md-form mb-3">
+                    <fieldset class="form-check">
+                        <input class="form-check-input" name="priority" type="radio" id="radio1" value="low" {% if form.priority.value == 'low' %} checked="checked" {% endif %}>
+                        <label class="form-check-label" for="radio1">Low</label>
+                    </fieldset>
+                    <fieldset class="form-check">
+                        <input class="form-check-input" name="priority" type="radio" id="radio2" value="normal" {% if not form.priority.value or form.priority.value == 'normal' %} checked="checked" {% endif %}>
+                        <label class="form-check-label" for="radio2">Normal</label>
+                    </fieldset>
+                    <fieldset class="form-check">
+                        <input class="form-check-input" name="priority" type="radio" id="radio3" value="high" {% if form.priority.value == 'high' %} checked="checked" {% endif %}>
+                        <label class="form-check-label" for="radio3">High</label>
+                    </fieldset>
+                    <fieldset class="form-check">
+                        <input class="form-check-input" name="priority" type="radio" id="radio4" value="highest" {% if form.priority.value == 'highest' %} checked="checked" {% endif %}>
+                        <label class="form-check-label" for="radio4">Highest</label>
+                    </fieldset>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.priority.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <h6 class="indigo-text ml-3 mt-5">Time range</h6>
+                <div class="md-form mb-0">
+                    <input name="supposed_start" type='text' class="form-control" id='supposed_start_inp' {% if form.supposed_start.value %} value="{{ form.supposed_start.value }}" {% endif %} />
+                    <label for="supposed_start_inp">Supposed start</label>
+                    <script type="text/javascript">
+                        $(function () {
+                            v = $('#supposed_start_inp').val();
+                            datetimepicker = $('#supposed_start_inp').datetimepicker();
+                            datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                            $('#supposed_start_inp').val(v);
+                        });
+                    </script>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.supposed_start.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <div class="md-form mb-0">
+                    <input name="supposed_end" type='text' class="form-control" id='supposed_end_inp' {% if form.supposed_end.value %} value="{{ form.supposed_end.value }}" {% endif %} />
+                    <label for="supposed_end_inp">Supposed end</label>
+                    <script type="text/javascript">
+                        $(function () {
+                            v = $('#supposed_end_inp').val();
+                            datetimepicker = $('#supposed_end_inp').datetimepicker();
+                            datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                            datetimepicker.data("DateTimePicker").minDate(moment());
+                            datetimepicker.data("DateTimePicker").date(null);
+                            $('#supposed_end_inp').val(v);
+                        });
+                    </script>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.supposed_end.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <div class="md-form mb-0">
+                    <input name="deadline" type='text' class="form-control" id='deadline_inp' {% if form.deadline.value %} value="{{ form.deadline.value }}" {% endif %} />
+                    <label for="deadline_inp">Deadline</label>
+                    <script type="text/javascript">
+                        $(function () {
+                            v = $('#deadline_inp').val();
+                            datetimepicker = $('#deadline_inp').datetimepicker();
+                            datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                            datetimepicker.data("DateTimePicker").minDate(moment());
+                            datetimepicker.data("DateTimePicker").date(null);
+                            $('#deadline_inp').val(v);
+                        });
+                    </script>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.deadline.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <button type="submit" class="btn btn-block mt-4 indigo">Submit</button>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
