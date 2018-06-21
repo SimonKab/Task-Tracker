@@ -162,6 +162,27 @@ class Controller():
             cls._project_storage = project_storage_adapter()
 
     @classmethod
+    def _internal_authentication(cls, users, provided_user_id=None, provided_user_login=None):
+        '''Authenticate user object. For internal use only
+        '''
+
+        success = users is not None and len(users) != 0
+        if success:
+            authenticated_user_id = users[0].uid
+            logging.get_logger(cls._log_tag).info('Authenticated {}'.format(authenticated_user_id))
+            cls._user_login_id = authenticated_user_id
+            print("AUTH", cls._user_login_id)
+        else:
+            message = ''
+            if provided_user_id is not None:
+                message = 'Authentication error for id {}'.format(provided_user_id)
+            if provided_user_login is not None:
+                message = 'Authentication error for login {}'.format(provided_user_login)
+            logging.get_logger(cls._log_tag).error(message)
+            raise AuthenticationError()
+        return success
+
+    @classmethod
     def authentication(cls, user_id):
         '''Let user to be authenticated by it's id
 
@@ -170,14 +191,23 @@ class Controller():
         '''
 
         users = UserController.fetch_user(uid=user_id)
-        success = users is not None and len(users) != 0
-        if success:
-            logging.get_logger(cls._log_tag).info('Authenticated {}'.format(user_id))
-            cls._user_login_id = user_id
-        else:
-            logging.get_logger(cls._log_tag).error('Authentication error for id {}'.format(user_id))
-            raise AuthenticationError()
-        return success
+        return cls._internal_authentication(users, provided_user_id=user_id)
+
+    @classmethod
+    def authentication_by_login(cls, login):
+        '''Let user to be authenticated by it's username
+
+        If user will not be authenticated most controllers will not be working
+        Throws AuthenticationError when user id was not found in database
+        '''
+
+        users = UserController.fetch_user(login=login)
+        return cls._internal_authentication(users, provided_user_login=login)
+
+    @classmethod
+    def logout(cls):
+        cls._user_login_id = None
+        return True
 
     @staticmethod
     def require_authentication(method):
@@ -439,6 +469,15 @@ class TaskController(Controller):
             priority = Priority.from_str(priority)
         if isinstance(status, str):
             status = Status.from_str(status)
+
+        if isinstance(supposed_start, datetime.datetime):
+            supposed_start = utils.datetime_to_milliseconds(supposed_start)
+
+        if isinstance(supposed_end, datetime.datetime):
+            supposed_end = utils.datetime_to_milliseconds(supposed_end)
+
+        if isinstance(deadline_time, datetime.datetime):
+            deadline_time = utils.datetime_to_milliseconds(deadline_time)
 
         task = Task()
         if task_id >= 0:
