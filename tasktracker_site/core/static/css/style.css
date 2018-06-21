@@ -1,0 +1,78 @@
+
+html {
+  min-height: 100%;
+}
+body {
+    height: 100vh;
+}
+
+#priority-circle {
+  width: 20px;
+  height: 20px;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10px;
+}
+
+.col-centered {
+    float: none;
+    margin: 0 auto;
+}
+
+.dark-body-background {
+  background: url("../img/background.jpg")no-repeat center center fixed;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+}
+
+.light-body-background {
+  background: url("../img/background_light.jpg")no-repeat center center fixed;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+}
+
+.container.custom-container {
+  margin-left: 100px;
+}
+
+.fixed-action-btn {
+    right: 15%;
+    bottom: 86%;
+}
+
+.wrapper {
+  position: relative;
+  min-height: 100%;
+}
+.navigation {
+}
+.content {
+  padding-top: 90px;
+  padding-bottom: 90px;
+}
+.footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+.fill {
+    min-height: 100%;
+    height: 100%;
+}
+
+.container {
+    margin: 0;
+}
+
+a.borderless {
+  border: 0 none;
+}
+
+h6 {
+  margin: 0 none;
+}

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+        <div class="fixed-action-btn" style="z-index: 10000">
+            <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+
+        <div class="row w-50" align="left">
+
+<!--             <div class="col-4 ml-0 mr-5">
+
+                <div class='card w-100 ml-0 center-block'>
+
+                    <h2 class='card-title text-center mt-4 indigo-text'>
+                        <strong>Projects</strong>
+                    </h2>
+
+                    <div class='card-body' align="center">
+                        <div class="list-group">
+
+                            {% for project in projects %}
+
+                                <a class="list-group-item list-group-item-action waves-effect borderless">
+                                    <label class="text-black-50">
+                                        <font size="4">{{ project }}</font>
+                                    </label>
+                                </a>
+
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                </div>
+
+            </div> -->
+
+            <div class="col">
+
+                {% if tasks|length > 0 %}
+                    {% for task in tasks %}
+                        <div class="row mb-5">
+                            {% include 'core/task_card.html' with task=task %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="row mb-5">
+                        {% include 'core/task_card.html' with no_tasks=True %}
+                    </div>
+                {% endif %}
+
+                                
+            </div>
+
+        </div>
+
+
+</div>
+
+{% endblock %}

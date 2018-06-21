@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load staticfiles %}
+
+{% block styles %}
+
+<link href="{% static 'css/bootstrap-datetimepicker.css' %}" rel="stylesheet">
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.9.0/moment-with-locales.js"></script>
+
+        <script type="text/javascript"
+                src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
+
+{% endblock %}
+
+{% block content %}
+
+    <h3 id="minimum-setup">Minimum Setup</h3>
+   <div class="container">
+    <div class="row">
+        <div class='col-sm-6'>
+            <input type='text' class="form-control" id='datetimepicker4' />
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $('#datetimepicker4').datetimepicker();
+            });
+        </script>
+    </div>
+</div>
+
+{% endblock %}
