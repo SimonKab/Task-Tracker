@@ -184,27 +184,63 @@ class Status():
     COMPLETED = 2
     OVERDUE = 3
 
-    @staticmethod
-    def to_str(status):
-        if status == Status.PENDING:
+    @classmethod
+    def to_str(cls, status):
+        if status == cls.PENDING:
             return "pending"
-        if status == Status.ACTIVE:
+        if status == cls.ACTIVE:
             return "active"
-        if status == Status.COMPLETED:
+        if status == cls.COMPLETED:
             return "completed"
-        if status == Status.OVERDUE:
+        if status == cls.OVERDUE:
             return "overdue"
 
-    @staticmethod
-    def from_str(status):
+    @classmethod
+    def from_str(cls, status):
         if status == 'pending':
-            return Status.PENDING
+            return cls.PENDING
         if status == 'active':
-            return Status.ACTIVE
+            return cls.ACTIVE
         if status == 'completed':
-            return Status.COMPLETED
+            return cls.COMPLETED
         if status == 'overdue':
-            return Status.OVERDUE
+            return cls.OVERDUE
+
+    @classmethod
+    def raise_status(cls, status):
+        '''Safely raises status
+
+        If status is COMPLETED, returns COMPLETED
+        if status is ACTIVE, returns COMPLETED
+        if status is PENDING, returns ACTIVE
+        if status is OVERDUE, returns PENDING
+
+        Don't raise status like status + 1, cause it can break status order
+        '''
+        if status == cls.COMPLETED:
+            return cls.COMPLETED
+        if status == cls.OVERDUE:
+            return cls.PENDING
+        return status + 1
+
+    @classmethod
+    def downgrade_status(cls, status):
+        '''Safely downgrade status
+
+        If status is COMPLETED, returns ACTIVE
+        if status is ACTIVE, returns PENDING
+        if status is PENDING, returns OVERDUE
+        if status is OVERDUE, returns OVERDUE
+
+        Don't raise status like status - 1, cause it can break status order
+        '''
+        if status == cls.OVERDUE:
+            return cls.OVERDUE
+        if status == cls.PENDING:
+            return cls.OVERDUE
+        return status - 1
+
+
 
 class Priority():
     LOW = 0
