@@ -13,7 +13,7 @@ from django.conf import settings
 import datetime
 import pytz
 
-from .forms import TaskForm
+from .forms import TaskForm, ProjectForm
 
 from tasktracker_core.requests.controllers import (Controller, 
                                                    TaskController, 
@@ -22,6 +22,7 @@ from tasktracker_core.requests.controllers import (Controller,
                                                    AuthenticationError)
 from tasktracker_core import utils
 from tasktracker_core.model.task import Status
+from tasktracker_core.model.project import Project
 
 class VisualTaskData():
 
@@ -71,6 +72,62 @@ class VisualTaskData():
 
         return visual_task
 
+class VisualProjectData():
+
+    def __init__(self):
+        self.pid = None
+        self.creator = None
+        self.name = None
+        self.admins = None
+        self.guests = None
+
+    @classmethod
+    def from_lib_project(cls, lib_project):
+        visual_project = VisualProjectData()
+
+        visual_project.pid = lib_project.pid
+        visual_project.creator = lib_project.creator
+        visual_project.name = lib_project.name
+        visual_project.admins = lib_project.admins
+        visual_project.guests = lib_project.guests
+
+        return visual_project
+
+    def get_participiant_names_and_status(self):
+        def get_user_names_kinds_list(user_id_list, user_kind):
+            user_names_kinds_list = []
+            for user_id in user_id_list:
+                user = UserController.fetch_user(uid=user_id)
+                if user is not None and len(user) != 0:
+                    user_names_kinds_list.append((user[0].login, user_kind))
+            return user_names_kinds_list
+
+        participiants = []
+        if self.creator is not None:
+            participiants += get_user_names_kinds_list([self.creator], Project.UserKind.CREATOR)
+
+        if self.admins is not None:
+            participiants += get_user_names_kinds_list(self.admins, Project.UserKind.ADMIN)
+
+        if self.guests is not None:
+            participiants += get_user_names_kinds_list(self.guests, Project.UserKind.GUEST)
+
+        return participiants
+
+    @staticmethod
+    def normalize_visual_names(visual_names):
+        def add_login_to_project_name(project):
+            users = UserController.fetch_user(project.creator)
+            if users is not None and len(users) != 0:
+                project.name += " ({})".format(users[0].login)
+
+        for head in range(len(visual_names)):
+            for rest in range(head + 1, len(visual_names)):
+                first = visual_names[head]
+                second = visual_names[rest]
+                if first.name == second.name:
+                    add_login_to_project_name(first)
+                    add_login_to_project_name(second)
 
 def relogin_lib(method):
     def check(request, *args, **kwargs):
@@ -138,7 +195,114 @@ def logout(request):
 
 @login_required
 @relogin_lib
-def tasks(request):
+def projects_list(request):
+    if request.method == "POST":
+        username = request.POST.get('username')
+        pid = request.POST.get('pid')
+        action = request.POST.get('action')
+        status = request.POST.get('status')
+        show_project = request.POST.get('show')
+
+        if show_project is not None:
+            return HttpResponseRedirect(reverse('core:project_tasks', args=[show_project]))
+
+        if (username is not None and len(username) != 0   
+            and pid is not None):     
+            users = UserController.fetch_user(login=username)
+            if users is not None and len(users) != 0:
+                user = users[0]
+                if action == 'invite':
+                    if status == 'admin':
+                        ProjectController.invite_user_to_project(int(pid), user.uid, admin=True)
+                    if status == 'guest':
+                        ProjectController.invite_user_to_project(int(pid), user.uid, guest=True)
+                if action == 'exclude':
+                    ProjectController.exclude_user_from_project(int(pid), user.uid)
+
+    projects = ProjectController.fetch_projects()
+    visual_projects = [VisualProjectData.from_lib_project(project) for project in projects]
+    VisualProjectData.normalize_visual_names(visual_projects)
+    return render(request, 'core/projects_list.html', {'projects':visual_projects})
+
+def _project_change_common(request, on_project_changed, initial_project=None):
+    if request.method == "POST":
+        form = ProjectForm(data=request.POST)
+        if form.is_valid():
+            name = form.cleaned_data.get('name')
+
+            on_project_changed(name)
+
+            return HttpResponseRedirect(reverse('core:projects_list'))
+    else:
+        form = ProjectForm()
+        if initial_project is not None:
+            form.fields['name'].initial = initial_project.name
+
+    return render(request, 'core/add_project.html', {'form': form})
+
+@login_required
+@relogin_lib
+def add_project(request):
+    def on_project_created(name):
+        ProjectController.save_project(name)
+
+    return _project_change_common(request, on_project_created)
+
+@login_required
+@relogin_lib
+def edit_project(request, project_id):
+    def on_project_edited(name):
+        ProjectController.edit_project(project_id, name)
+
+    projects = ProjectController.fetch_projects(pid=project_id)
+    if projects is None or len(projects) == 0:
+        raise Http404
+
+    return _project_change_common(request, on_project_edited, projects[0])
+
+@login_required
+@relogin_lib
+def delete_project(request, project_id):
+    projects = ProjectController.fetch_projects(pid=project_id)
+    if projects is None or len(projects) == 0:
+        raise Http404
+
+    ProjectController.remove_project(project_id)
+    return HttpResponseRedirect(reverse('core:projects_list'))
+
+@login_required
+@relogin_lib
+def project_tasks(request, project_id):
+    request.session['pid'] = project_id
+
+    if request.method == "POST":
+        up_status = request.POST.get('status_up')
+        if up_status is not None:
+            status, tid = tuple(up_status.split(','))
+            status = Status.to_str(Status.raise_status(Status.from_str(status)))
+            TaskController.edit_task(tid, status=status)
+        down_status = request.POST.get('status_down')
+        if down_status is not None:
+            status, tid = tuple(down_status.split(','))
+            status = Status.to_str(Status.downgrade_status(Status.from_str(status)))
+            TaskController.edit_task(tid, status=status)
+        back = request.POST.get('back')
+        if back is not None:
+            return HttpResponseRedirect(reverse('core:projects_list'))
+
+    projects = ProjectController.fetch_projects(pid=project_id)
+    back_text = None
+    if projects is not None and len(projects) != 0:
+        back_text = projects[0].name
+
+    tasks = TaskController.fetch_tasks(pid=project_id)
+    tasks = list(reversed(tasks))
+    visual_tasks = [VisualTaskData.from_lib_task(task) for task in tasks]
+    return render(request, 'core/projects_task_list.html', {'tasks':visual_tasks, 'back_text': back_text})
+
+@login_required
+@relogin_lib
+def all_tasks(request):
     if request.method == "POST":
         up_status = request.POST.get('status_up')
         if up_status is not None:
@@ -151,21 +315,21 @@ def tasks(request):
             status = Status.to_str(Status.downgrade_status(Status.from_str(status)))
             TaskController.edit_task(tid, status=status)
 
-    projects = ProjectController.fetch_projects()
-    projects_titles = [project.name for project in projects]
-
     tasks = TaskController.fetch_tasks()
     tasks = list(reversed(tasks))
 
     visual_tasks = [VisualTaskData.from_lib_task(task) for task in tasks]
 
-
-    return render(request, 'core/tasks.html', {'projects':projects_titles, 'tasks':visual_tasks})
+    return render(request, 'core/all_tasks_list.html', {'tasks':visual_tasks})
 
 def _task_change_common(request, on_task_changed, initial_task=None):
     def to_utc(datetime_object):
         if datetime_object is not None:
             return datetime_object.astimezone(pytz.utc).replace(tzinfo=None)
+
+    projects = ProjectController.fetch_projects()
+    visual_projects = [VisualProjectData.from_lib_project(project) for project in projects]
+    VisualProjectData.normalize_visual_names(visual_projects)
 
     if request.method == "POST":
         form = TaskForm(data=request.POST)
@@ -176,7 +340,7 @@ def _task_change_common(request, on_task_changed, initial_task=None):
             supposed_start = form.cleaned_data.get('supposed_start')
             supposed_end = form.cleaned_data.get('supposed_end')
             deadline = form.cleaned_data.get('deadline')
-
+            project_pid = int(form.cleaned_data.get('project'))
 
             supposed_start = to_utc(supposed_start)
             supposed_end = to_utc(supposed_end)
@@ -187,9 +351,9 @@ def _task_change_common(request, on_task_changed, initial_task=None):
             deadline = utils.datetime_to_milliseconds(deadline)
 
             on_task_changed(title, description, priority, supposed_start, 
-                supposed_end, deadline)
+                supposed_end, deadline, project_pid)
 
-            return HttpResponseRedirect(reverse('core:tasks'))
+            return HttpResponseRedirect(reverse('core:project_tasks', args=[project_pid]))
     else:
         form = TaskForm()
         if initial_task is not None:
@@ -205,14 +369,25 @@ def _task_change_common(request, on_task_changed, initial_task=None):
             form.fields['supposed_end'].initial = supposed_end
             form.fields['deadline'].initial = deadline
 
-    return render(request, 'core/add_task.html', {'form': form})
+            form.fields['project'].initial = initial_task.project_id
+        else:
+            pid = request.session.get('pid')
+            if pid is not None:
+                form.fields['project'].initial = str(pid)
+            else:
+                for project in projects:
+                    if project.name == Project.default_project_name:
+                        form.fields['project'].initial = str(project.pid)
+                        break
+    
+    return render(request, 'core/add_task.html', {'form': form, 'projects': visual_projects})
 
 @login_required
 @relogin_lib
-def add_task(request):
+def add_task(request, project_id=None):
     def on_task_created(title, description, priority, supposed_start,
-                        supposed_end, deadline):
-        TaskController.save_task(title=title, description=description,
+                        supposed_end, deadline, project_pid):
+        TaskController.save_task(pid=project_pid, title=title, description=description,
                                      priority=priority, supposed_start=supposed_start,
                                      supposed_end=supposed_end, deadline_time=deadline)
 
@@ -227,8 +402,8 @@ def edit_task(request, task_id):
     initial_task = tasks[0]
 
     def on_task_edited(title, description, priority, supposed_start,
-                        supposed_end, deadline):
-        TaskController.edit_task(task_id, title=title, description=description,
+                        supposed_end, deadline, project_pid):
+        TaskController.edit_task(task_id, pid=project_pid, title=title, description=description,
                                      priority=priority, supposed_start_time=supposed_start,
                                      supposed_end_time=supposed_end, deadline_time=deadline)
 
@@ -243,7 +418,11 @@ def delete_task(request, task_id):
 
     TaskController.remove_task(task_id)
 
-    return HttpResponseRedirect(reverse('core:tasks'))
+    pid = request.session.get('pid')
+    if pid is not None:
+        return HttpResponseRedirect(reverse('core:project_tasks', args=[pid]))
+    else:
+        return HttpResponseRedirect(reverse('core:projects_list'))
 
 def temp(request):
     return render(request, 'core/temp.html')
