@@ -17,9 +17,14 @@ class Project():
             return self.UserKind.GUEST
         return None
 
+    def participiants_exist(self):
+        return ((self.admins is not None and len(self.admins) != 0) and
+                (self.guests is not None and len(self.guests) != 0))
+
     class UserKind():
         ADMIN = 0
         GUEST = 1
+        CREATOR = 2
 
     class Field():
         pid = 'pid'
