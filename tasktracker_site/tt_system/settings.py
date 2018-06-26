@@ -48,6 +48,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'core.error_handlers.HandleLibExceptionMiddleware',
 ]
 
 ROOT_URLCONF = 'tt_system.urls'

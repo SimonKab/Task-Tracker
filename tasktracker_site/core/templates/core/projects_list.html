@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+    $("#projects_tab").attr('class', 'active');
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+    <div class="fixed-action-btn" style="z-index: 10000">
+        <a class="btn-floating btn-lg pink" href="{% url 'core:add_project' %}">
+            <i class="material-icons">add</i>
+        </a>
+    </div>
+
+    <div class="w-50">
+
+        {% if projects|length > 0 %}
+            {% for project in projects %}
+                <div class="row mb-5">
+                    {% include 'core/project_card.html' with project=project %}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

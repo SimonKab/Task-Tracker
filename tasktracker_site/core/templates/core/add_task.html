@@ -61,6 +61,18 @@
                 {% endfor %}
                 {% endif %}
 
+                {% if projects %}
+                <h6 class="indigo-text ml-3 mt-5">Project</h6>
+                <div class="btn-group mt-4" data-toggle="buttons" style="max-height: 300px; overflow-y: scroll; display: block;">
+                    {% for project in projects %}
+                    <label class="btn btn-primary waves-effect waves-light {% if form.project.value == project.pid|stringformat:"i" %} active {% endif %}">
+                        <input type="radio" name="project" value="{{ project.pid }}" id="option1" autocomplete="off" {% if form.project.value == project.pid|stringformat:"i" %} checked="checked" {% endif %}>
+                        {{ project.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 <h6 class="indigo-text ml-3 mt-5">Priority</h6>
                 <div class="md-form mb-3">
                     <fieldset class="form-check">

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+    $("#tasks_tab").attr('class', 'active');
+</script>
+
+{% endblock %}
+
+{% block page-title%}
+<label class="navbar-brand text-white mt-2">Tasks</label>
+{% endblock %}
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+        <div class="fixed-action-btn" style="z-index: 10000">
+            <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+        
+        {% include 'core/task_list.html' with task=task %}
+
+</div>
+
+{% endblock %}
