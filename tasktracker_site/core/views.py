@@ -72,6 +72,11 @@ class VisualTaskData():
 
         return visual_task
 
+    def get_project_name(self):
+        projects = ProjectController.fetch_projects(pid=self.pid)
+        if projects is not None and len(projects) != 0:
+            return projects[0].name
+
 class VisualProjectData():
 
     def __init__(self):

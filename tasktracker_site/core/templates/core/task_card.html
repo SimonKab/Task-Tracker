@@ -90,8 +90,9 @@
             </form>
             {% endif %}
 
-            <div class="row ml-5 mr-4 mt-5">
 
+            <label class="grey-text ml-5 mt-4">{{ task.get_project_name }}</label>
+            <div class="row ml-5 mr-4 ">
                 <div class="col">
                     <div class="row">
                         {% if task.priority != 1 %}
@@ -107,7 +108,7 @@
                                 {% endif %}
                             </div>
                         {% endif %}
-                        <div class="col">
+                        <div class="col pl-0">
                             <h3>{{ task.title }}</h3>
                         </div>
                     </div>
