@@ -204,16 +204,23 @@ class StorageAdapter():
         if db_file is None:
             db_file = _DEFAULT_DB_FILE_PATH
 
+        self.db_file = db_file
+
+        # print(self._is_database_exists())
+
+        # if not self._is_database_exists():
+        #     self._create_db()
+
         if db is None:
             self.db = SqliteDatabase(db_file)
             _db_proxy.initialize(self.db)
+
+            tables = [TaskTableModel, UserTableModel, 
+                    PlanTableModel, PlanRelationsTableModel, 
+                    ProjectTableModel, ProjectRelationsTableModel]
+            self.db.create_tables(tables)
         else:
             self.db = db
-
-        self.db_file = db_file
-
-        if not self._is_database_exists():
-            self._create_db()
 
     def _is_database_exists(self):
         if self.db_file == ':memory:':
@@ -296,13 +303,16 @@ class TaskStorageAdapter(StorageAdapter):
         if plans is not None and len(plans) != 0:
             for plan in plans:
                 success = plan_storage.remove_plan(plan.plan_id)
-                return success
+                print(success)
+                if not success:
+                    return success
 
         plans = plan_storage.get_plans(edit_repeat_tid=tid)
         if plans is not None and len(plans) != 0:
             for plan in plans:
                 number = plan_storage.get_number_for_edit_repeat_by_tid(plan.plan_id, tid)
                 success = plan_storage.restore_plan_repeat(plan.plan_id, number)
+                print(success)
                 if not success:
                     return False
 
@@ -381,10 +391,28 @@ class TaskStorageAdapter(StorageAdapter):
             self._filter.append(TaskTableModel.description == description)
 
         def priority(self, priority):
-            self._filter.append(TaskTableModel.priority == priority)
+            if isinstance(priority, list):
+                if len(priority) == 0:
+                    return
+                priority_iter = iter(priority)
+                condition = TaskTableModel.priority == next(priority_iter)
+                for p in priority_iter:
+                    condition = (condition) | (TaskTableModel.priority == p)
+                self._filter.append(condition)
+            else:
+                self._filter.append(TaskTableModel.priority == priority)
 
         def status(self, status):
-            self._filter.append(TaskTableModel.status == status)
+            if isinstance(status, list):
+                if len(status) == 0:
+                    return
+                status_iter = iter(status)
+                condition = TaskTableModel.status == next(status_iter)
+                for s in status_iter:
+                    condition = (condition) | (TaskTableModel.status == s)
+                self._filter.append(condition)
+            else:
+                self._filter.append(TaskTableModel.status == status)
 
         def notificate_supposed_start(self, notificate_supposed_start):
             self._filter.append(TaskTableModel.notificate_supposed_start == notificate_supposed_start)

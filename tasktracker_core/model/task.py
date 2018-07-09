@@ -1,3 +1,5 @@
+import datetime
+
 class Task():
 
     def __init__(self):
@@ -69,6 +71,24 @@ class Task():
             return (left_border, )
 
     def shift_time(self, shift):
+        def shift_month(var, shift):
+            if var is not None:
+                utc = datetime.datetime.utcfromtimestamp(var / 1000.0)
+                next = utc.month+1
+                if next > 12:
+                    next = 1
+                if (datetime.date(utc.year, next, 1) - datetime.date(utc.year, utc.month, 1)).days == 31:
+                    shift += 24*3600*1000
+            return shift
+
+        # if datetime.timedelta(milliseconds=shift).days >= 30 and datetime.timedelta(milliseconds=shift).days < 60:
+        #     if self.supposed_start_time is not None:
+        #         shift = shift_month(self.supposed_start_time, shift)
+        #     if self.supposed_end_time is not None:
+        #         shift = shift_month(self.supposed_end_time, shift)
+        #     if self.deadline_time is not None:
+        #         shift = shift_month(self.deadline_time, shift)
+
         if self.supposed_start_time is not None:
             self.supposed_start_time += shift
         if self.supposed_end_time is not None:
@@ -93,6 +113,14 @@ class Task():
 
         return (self.is_after_time((time_range[1], ), True)
             and self.is_before_time((time_range[0], ), True))
+
+    def is_task_inside_of_range_parent(self, time_range):
+        if len(time_range) != 2:
+            return False
+
+        return (self.is_before_time((time_range[1], ), True)
+            and self.is_after_time((time_range[0], ), True))
+
 
     def is_after_time(self, time_range, not_strong=False):
         if len(time_range) == 0:
@@ -127,6 +155,7 @@ class Task():
             end_time = time_range[1]
 
         if not_strong:
+            print('t', start_time, self.supposed_start_time, self.supposed_end_time, self.deadline_time)
             before_start = self._compare_time(start_time, 
                 lambda to_compare, with_compare: to_compare <= with_compare)
             before_end = self._compare_time(end_time, 
