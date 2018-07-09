@@ -1,9 +1,11 @@
+{% load core_extras %}
+
 <div class="card w-100">
 
     {% if no_tasks %}
         
         <div class='card-title ml-5 mt-4'>
-            <h3>There is not tasks yet</h3>
+            <h3>There is not tasks</h3>
         </div>
 
     {% else %}
@@ -16,12 +18,12 @@
                 <div id="status_container_{{task.tid}}" align="center">
                     <div class="row">
                         <div class="col pr-0" align="center">
-                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="pending, {{task.tid}}">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="pending, {{task|with_plan_id_and_repeat}}">
                                 <h6 class="grey-text w-100 mb-0 ml-3">PENDING</h6>
                             </button>
                         </div>
                         <div class="col-1 mr-2 pl-0" align="center">
-                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="pending, {{task.tid}}">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="pending, {{task|with_plan_id_and_repeat}}">
                                 <i class='material-icons grey-text'>arrow_downward</i>
                             </button>
                         </div>
@@ -36,12 +38,12 @@
                 <div class="pink" id="status_container_{{task.tid}}" align="center">
                     <div class="row">
                         <div class="col pr-0" align="center">
-                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="active, {{task.tid}}">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="active, {{task|with_plan_id_and_repeat}}">
                                 <h6 class="white-text w-100 mb-0 ml-3"><strong>ACTIVE</strong></h6>
                             </button>
                         </div>
                         <div class="col-1 mr-2 pl-0" align="center">
-                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="active, {{task.tid}}">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="active, {{task|with_plan_id_and_repeat}}">
                                 <i class='material-icons white-text'>arrow_downward</i>
                             </button>
                         </div>
@@ -56,12 +58,12 @@
                 <div class="indigo" id="status_container_{{task.tid}}" align="center">
                     <div class="row">
                         <div class="col pr-0" align="center">
-                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="completed, {{task.tid}}">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100 waves-light" name="status_up" value="completed, {{task|with_plan_id_and_repeat}}">
                                 <h6 class="white-text w-100 mb-0 ml-3"><strong>COMPLETED</strong></h6>
                             </button>
                         </div>
                         <div class="col-1 mr-2 pl-0" align="center">
-                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="completed, {{task.tid}}">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100 waves-light" name="status_down" value="completed, {{task|with_plan_id_and_repeat}}">
                                 <i class='material-icons white-text'>arrow_downward</i>
                             </button>
                         </div>
@@ -76,12 +78,12 @@
                 <div style="background: #e8eaf6" id="status_container_{{task.tid}}" align="center">
                     <div class="row">
                         <div class="col pr-0" align="center">
-                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="overdue, {{task.tid}}">
+                            <button class="btn btn-flat mr-0 ml-0 mb-0 mt-0 pl-3 pr-0 pb-3 pt-3 w-100 h-100" name="status_up" value="overdue, {{task|with_plan_id_and_repeat}}">
                                 <h6 class="text-black-50 w-100 mb-0 ml-3"><strong>OVERDUE</strong></h6>
                             </button>
                         </div>
                         <div class="col-1 mr-2 pl-0" align="center">
-                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="overdue, {{task.tid}}">
+                            <button class="btn btn-flat ml-0 mr-0 mb-0 mt-0 pl-0 pr-0 pb-0 pt-0 w-100 h-100" name="status_down" value="overdue, {{task|with_plan_id_and_repeat}}">
                                 <i class='material-icons text-black-50'>arrow_downward</i>
                             </button>
                         </div>
@@ -90,8 +92,9 @@
             </form>
             {% endif %}
 
-            <div class="row ml-5 mr-4 mt-5">
 
+            <label class="grey-text ml-5 mt-4">{{ task.get_project_name }}</label>
+            <div class="row ml-5 mr-4 ">
                 <div class="col">
                     <div class="row">
                         {% if task.priority != 1 %}
@@ -107,13 +110,15 @@
                                 {% endif %}
                             </div>
                         {% endif %}
-                        <div class="col">
-                            <h3>{{ task.title }}</h3>
+                        <div class="col pl-0">
+                            <a class="waves-effect w-100 h-100" href="{% url 'core:show_task' task.tid %}" style="color: black;">
+                                <h3>{{ task.title }}</h3>
+                            </a>
                         </div>
                     </div>
                     {% if task.description %}
                     <div class="row">
-                        <h6 class="grey-text ml-3">{{ task.description }}</h6>
+                        <h6 class="grey-text ml-1">{{ task.description }}</h6>
                     </div>
                     {% endif %}
                 </div>
@@ -121,11 +126,11 @@
                 <div class="col-lg-auto pr-0" align="right">
                     <div class="row mb-0 pb-0">
                         <a class="waves-effect">
-                            <i class='material-icons pink-text' data-toggle="modal" data-target="#deleteModalConfirm_{{ task.tid }}">delete</i>
+                            <i class='material-icons pink-text' data-toggle="modal" data-target="#deleteModalConfirm_{{ task|with_plan_repeat }}">delete</i>
                         </a>
                     </div>
                     <dir class="row pl-0 mt-0 pt-0">
-                        <a class="waves-effect" href="{% url 'core:edit_task' task.tid %}">
+                        <a class="waves-effect" href="{% if no_repeats %} {% url 'core:edit_task' task.tid %} {% else %} {% url 'core:edit_task' task|with_plan_id_and_repeat %} {% endif %}">
                             <i class='material-icons pink-text'>edit</i>
                         </a>
                     </dir>
@@ -186,27 +191,68 @@
             </div>
             {% endif %}
 
-            {% if task.parent_id %}
             <hr style="height: 1px;">
             <div class="container pl-5">
-                <label class="text-black-50 mr-3">The parent is:</label>
-                <a href="#" class="indigo-text">Hi mom</a>
+                
+                <form id="my_form" method="post">
+                    {% csrf_token %}  
+                    <button class="btn btn-flat" name="add_subtask" value="{{ task.tid }}"><h class="pink-text">Add subtask</h></button>
+                </form>
+
+                <div class="row">
+                    {% if task.parent %}
+                    <label class="text-black-50 mr-3">The parent is:</label>
+                    <a href="{% url 'core:show_task' task.parent.tid %}" class="indigo-text">{{ task.parent.title }}</a>
+                    {% endif %}
+                </div>
+
+                {% if task.childs %}
+                {% for child in task.childs %}
+                <div class="row">
+                    <label class="text-black-50 mr-3">The child is:</label>
+                    <a href="{% url 'core:show_task' child.tid %}" class="indigo-text">{{ child.title }}</a>    
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+
+            {% if task.plan %}
+            <hr style="height: 1px;">
+            <div class="container pl-5">
+                {% if task.plan.shift %}
+                <div class="row">
+                    <label class="text-black-50 mr-3">Shift: {{ task.plan.shift }}</label>
+                </div>
+                {% endif %}
+
+                {% if task.plan.end %}
+                <div class="row">
+                    <label class="text-black-50 mr-3">End: {{ task.plan.end }}</label>
+                </div>
+                {% endif %}
+
+                {% if task.repeat is not None and not no_repeats %}
+                <div class="row">
+                    <label class="text-black-50 mr-3">{% if task.edit %} Edit of repeat: {% else %} Repeat: {% endif %}{{ task.repeat }}</label>
+                </div>
+                {% endif %}                
             </div>
             {% endif %}
+            
         </div>
 
-        <div class="modal fade" id="deleteModalConfirm_{{ task.tid }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+        <div class="modal fade" id="deleteModalConfirm_{{ task|with_plan_repeat }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Do you want to delete task? {{ task.tid }}</h5>
+                    <h5 class="modal-title">Do you want to delete task?</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                       <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn grey" data-dismiss="modal">No</button>
-                    <a type="button" class="btn indigo" href="{% url 'core:delete_task' task.tid %}">Yes</a>
+                    <a type="button" class="btn indigo" href="{% if no_repeats %} {% url 'core:delete_task' task.tid %} {% else %} {% url 'core:delete_task' task|with_plan_id_and_repeat %} {% endif %}">Yes</a>
                 </div>
             </div>
         </div>

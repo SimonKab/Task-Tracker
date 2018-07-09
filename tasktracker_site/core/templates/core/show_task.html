@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+        <div class="fixed-action-btn" style="z-index: 10000">
+            <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+
+        <div class="row w-50 mb-5" align="left">
+            {% include 'core/task_card.html' with task=main_task no_repeats=True %}
+        </div>
+
+        {% if main_task.plan %}
+        <h1 class="mb-5">-- Plan --</h1>
+
+        <div class="w-50 mb-5" align="left">
+        {% include 'core/plan_card.html' with plan=main_task.plan %}
+        </div>
+        {% endif %}
+
+        {% if child_tasks %}
+        <h1 class="mb-5">-- Children --</h1>
+
+        {% include 'core/task_list.html' with tasks=child_tasks tree_enabled=True %}
+        {% endif %}
+
+</div>
+
+{% endblock %}

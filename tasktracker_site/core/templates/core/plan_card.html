@@ -1,0 +1,47 @@
+{% load core_extras %}
+
+<div class="card w-100">
+
+    <div class='card-body'>
+        <div class="container pl-5">
+            {% if plan.shift %}
+            <div class="row">
+                <h5 class="mr-3">Shift: {{ plan.shift }}</h5>
+            </div>
+            {% endif %}
+
+            {% if plan.end %}
+            <div class="row">
+                <label class="mr-3">End: {{ plan.end }}</label>
+            </div>
+            {% endif %}   
+
+            {% if plan.excludes %}
+            <div class="row mt-3">
+                <label class="mr-3 indigo-text">Excludes</label>
+            </div>
+            {% for exclude in plan.excludes %}
+            <div class="row">
+                <div class="col mt-3">
+                    {% if exclude.kind == 1 %}
+                    <label class="mr-3">Edited:</label>
+                    <a href="{% url 'core:show_task' exclude.tid %}">{% if exclude.time|length == 2%} {{ exclude.time.0 }} - {{ exclude.time.1 }} {% else %} {{ exclude.time.0 }} {% endif %}</a>
+                    {% endif %}
+                    {% if exclude.kind == 2 %}
+                    <label class="mr-3">Deleted:</label>
+                    <label>{% if exclude.time|length == 2%} {{ exclude.time.0 }} - {{ exclude.time.1 }} {% else %} {{ exclude.time.0 }} {% endif %}</label>
+                    {% endif %}
+                </div>
+                <div class="col-auto">
+                    <form method="post" autocomplete="off">
+                        {% csrf_token %}
+                        <button class="btn btn-flat" name="restore" value="{{ exclude.repeat }}"><h class="pink-text">Restore</h></button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}        
+        </div>
+    </div>
+
+</div>
