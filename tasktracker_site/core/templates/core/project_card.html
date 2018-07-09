@@ -1,0 +1,149 @@
+<div class="card w-100" align="left">
+    <div class='card-title mb-0'>
+
+        <div class="row pt-3">
+
+            <div class="col">
+
+                <form method="post" autocomplete="off">
+                    {% csrf_token %}
+                    <button class="btn btn-flat ml-0 mt-0 mb-0 mr-0 w-100 h-100 pb-3 pl-0 pr-0 pt-0" style="text-align: left; text-transform: none;" name="show" value="{{ project.pid }}">
+                        <div class="container mt-3 ml-3">
+                            <h3 class="mb-0">{{ project.name }}</h3>
+                        </div>
+                    </button>
+                </form>
+
+            </div>
+
+            <div class="col-1">
+                <div class="row mb-0 pb-0">
+                    <a class="waves-effect">
+                        <i class='material-icons pink-text' data-toggle="modal" data-target="#deleteModalConfirm_{{ project.pid }}">delete</i>
+                    </a>
+                </div>
+                <dir class="row pl-0 mt-0 pt-0">
+                    <a class="waves-effect" href="{% url 'core:edit_project' project.pid %}">
+                        <i class='material-icons pink-text'>edit</i>
+                    </a>
+                </dir>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="card-body pt-0 pb-0 mt-1">
+        <hr class="mt-0" style="height: 1px;">
+
+        <div class="container">
+
+            <h6 class="indigo-text mb-4">Participiants</h6>
+
+            {% for name, status in project.get_participiant_names_and_status %}
+
+            <div class="row mb-1">
+                <div class="col">
+                    <form method="post" autocomplete="off">
+                        {% csrf_token %}
+                        <button class="btn btn-flat w-100 h-100 waves-effect pl-0 pr-0 pt-0 pb-0 ml-0 mt-0 mr-0 mb-0" style="text-align: left; text-transform: none;">
+                            <h6 class="mb-0 pt-2 ml-3">
+                                <span>
+                                    {{ name }}
+                                </span>
+                                <span class="grey-text ml-5" style="font-size: 11pt">
+                                    - 
+                                    {% if status == 0 %}
+                                        Admin
+                                    {% endif %}
+                                    {% if status == 1 %}
+                                        Guest
+                                    {% endif %}
+                                    {% if status == 2 %}
+                                        Creator
+                                    {% endif %}
+                                </span>
+                            </h6>
+                        </button>
+                    </form>
+                </div>
+                {% if status != 2 %}
+                <div class="col-3" align="center">
+                    <form method="post" autocomplete="off">
+                        {% csrf_token %}
+                        <input type="hidden" name="pid" value="{{ project.pid }}" />
+                        <input type="hidden" name="username" value="{{ name }}" />
+                        <button class="btn btn-flat mt-0 mb-0 mr-0 ml-0 pt-2 ml-4 w-100 h-100" style="font-size: 10pt" type="submit" name="action" value="exclude">
+                            <p class="pink-text mb-0">EXCLUDE</p>
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            {% endfor %}
+
+            <div class="w-100 h-100 ml-3 mb-3">
+                <div class="w-100 h-100" align="right">
+                    <a class="btn pink white-text" data-toggle="modal" data-target="#inviteModalConfirm_{{ project.pid }}">
+                        INVITE
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="inviteModalConfirm_{{ project.pid }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Invite a new participiant</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="pid" value="{{ project.pid }}" />
+                    <div class="md-form mb-0">
+                        <input name="username" type="text" class="form-control" id="login_inp">
+                        <label for="login_inp">Login</label>
+                    </div>
+
+                    <div class="md-form">
+                        <fieldset class="form-check">
+                            <input class="form-check-input" name="status" type="radio" id="radio1_{{ project.pid }}" value="admin">
+                            <label class="form-check-label" for="radio1_{{ project.pid }}">Admin</label>
+                        </fieldset>
+                        <fieldset class="form-check">
+                            <input class="form-check-input" name="status" type="radio" id="radio2_{{ project.pid }}" value="guest" checked="checked">
+                            <label class="form-check-label" for="radio2_{{ project.pid }}">Guest</label>
+                        </fieldset>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn indigo white-text" name="action" value="invite">invite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal fade" id="deleteModalConfirm_{{ project.pid }}" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Do you want to delete project?</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn grey" data-dismiss="modal">No</button>
+                <a type="button" class="btn indigo" href="{% url 'core:delete_project' project.pid %}">Yes</a>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>

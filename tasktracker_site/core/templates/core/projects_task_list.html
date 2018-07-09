@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+    $("#projects_tab").attr('class', 'active');
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+        <div class="fixed-action-btn" style="z-index: 10000">
+            <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+
+        
+        <div class="row mb-5 ml-0 mr-0">
+            <div class="col-1 ml-5 pr-0 mt-1">
+                <form method="post" autocomplete="off">
+                    {% csrf_token %}
+                    <button class="btn btn-flat ml-0 mr-0 mt-0 mb-0 pl-0 pt-0 pr-0 pb-0" name="back" value="back_text">
+                        <i class="material-icons" style="font-size: 2em">arrow_back</i>
+                    </button>
+                </form>
+            </div>
+            <div class="col pl-0" align="left">
+                <h3>
+                {% if back_text %}
+                {{ back_text }}
+                {% else %}
+                Back
+                {% endif %}
+                </h3>
+            </div>
+        </div>
+
+        {% include 'core/task_list.html' with task=task no_repeats=True %}
+
+</div>
+
+{% endblock %}

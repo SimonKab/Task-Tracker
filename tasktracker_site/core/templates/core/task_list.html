@@ -1,0 +1,20 @@
+<div class="row w-50" align="left">
+
+    <div class="col">
+
+        {% if tasks|length > 0 %}
+            {% for task in tasks %}
+                <div class="row mb-5" {% if tree_enabled and task.depth %} style="margin-left: {{task.depth}}px;" {% endif %}>
+                    {% include 'core/task_card.html' with task=task no_repeats=no_repeats %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="row mb-5">
+                {% include 'core/task_card.html' with no_tasks=True %}
+            </div>
+        {% endif %}
+
+                        
+    </div>
+
+</div>

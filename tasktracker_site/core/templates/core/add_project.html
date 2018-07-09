@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load staticfiles %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+</script>
+
+{% endblock %}
+
+{% block styles %}
+
+<link href="{% static 'css/bootstrap-datetimepicker.css' %}" rel="stylesheet">
+
+<script src="{% static 'js/moment-with-locales.js' %}"></script>
+
+<script type="text/javascript"
+                src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class=''>
+
+    <div class='card w-50 center-block' style='margin: 0 auto;'>
+        <h2 class='card-title text-center mt-4 indigo-text'>
+            <strong>New project</strong>
+        </h2>
+
+        <div class="card-body">
+
+            <form method="post" autocomplete="off">
+                {% csrf_token %}         
+
+                <div class="md-form mb-0">
+                    <input name="name" type="text" class="form-control" id="name_inp" {% if form.name.value %} value="{{ form.name.value }}" {% endif %}>
+                    <label for="name_inp">Name</label>
+                </div>
+
+                {% if form.errors|length > 0 %}
+                {% for error in form.name.errors %}
+                    <h6 class='red-text'>
+                        {{ error }}
+                    </h6>
+                {% endfor %}
+                {% endif %}
+
+                <button type="submit" class="btn btn-block mt-4 indigo">Submit</button>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
