@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load staticfiles %}
+
+{% block scripts %}
+    
+<script type="text/javascript">
+    $("#body").attr('class', 'light-body-background');
+    $("#tasks_tab").attr('class', 'active');
+</script>
+
+{% endblock %}
+
+{% block styles %}
+
+<link href="{% static 'css/bootstrap-datetimepicker.css' %}" rel="stylesheet">
+
+<script src="{% static 'js/moment-with-locales.js' %}"></script>
+
+<script type="text/javascript"
+                src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="mt-5" align="center">
+
+        <div class="fixed-action-btn" style="z-index: 10000">
+            <a class="btn-floating btn-lg pink" href="{% url 'core:add_task' %}">
+                <i class="material-icons">add</i>
+            </a>
+        </div>
+
+    <div class='card w-75 center-block mb-5' style='margin: 0 auto;'>
+        <h2 class='card-title text-center mt-4 indigo-text'>
+            <strong>Search</strong>
+        </h2>
+
+        <div class="card-body" align="left">
+
+            <form method="post" autocomplete="off">
+                {% csrf_token %}         
+
+                <div class="md-form mb-0">
+                    <input name="title" type="text" class="form-control" id="title_inp" {% if form.title.value %} value="{{ form.title.value }}" {% endif %}>
+                    <label for="title_inp">Title</label>
+                </div>
+
+
+                <div class="md-form mb-0">
+                    <input name="description" type="text" class="form-control" id="description_inp"
+                            {% if form.description.value %} value="{{ form.description.value }}" {% endif %}>
+                    <label for="description_inp">Description</label>
+                </div>
+
+                {% if projects %}
+                <h6 class="indigo-text ml-3 mt-5">Project</h6>
+                <div class="btn-group mt-4" data-toggle="buttons" style="max-height: 300px; overflow-y: scroll; display: block;">
+                    {% for project in projects %}
+                    <label class="btn btn-primary waves-effect waves-light {% if project.pid|stringformat:"i" in form.projects %} active {% endif %}">
+                        <input type="checkbox" name="project" value="{{ project.pid }}" id="option1" autocomplete="off" {% if project.pid|stringformat:"i" in form.projects  %} checked="checked" {% endif %}>
+                        {{ project.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="row">
+
+                    <div class="col-3">
+                        <h6 class="indigo-text ml-3 mt-5">Priority</h6>
+                        <div class="md-form mb-3">
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="priority" type="checkbox" id="radio1" value="low" {% if 'low' in form.priority.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio1">Low</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="priority" type="checkbox" id="radio2" value="normal" {% if 'normal' in form.priority.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio2">Normal</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="priority" type="checkbox" id="radio3" value="high" {% if 'high' in form.priority.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio3">High</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="priority" type="checkbox" id="radio4" value="highest" {% if 'highest' in form.priority.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio4">Highest</label>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <h6 class="indigo-text ml-3 mt-5">Status</h6>
+                        <div class="md-form mb-3">
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="status" type="checkbox" id="radio5" value="overdue" {% if 'overdue' in form.status.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio5">Overdue</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="status" type="checkbox" id="radio6" value="pending" {% if 'pending' in form.status.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio6">Pending</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="status" type="checkbox" id="radio7" value="active" {% if 'active' in form.status.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio7">Active</label>
+                            </fieldset>
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="status" type="checkbox" id="radio8" value="completed" {% if 'completed' in form.status.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio8">Completed</label>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <div class="col mt-0">
+                        <h6 class="indigo-text ml-3 mt-5">Time range</h6>
+                        <div class="md-form mb-0">
+                            <input name="supposed_start" type='text' class="form-control" id='supposed_start_inp' {% if form.supposed_start.value %} value="{{ form.supposed_start.value }}" {% endif %} />
+                            <label for="supposed_start_inp">Supposed start</label>
+                            <script type="text/javascript">
+                                $(function () {
+                                    v = $('#supposed_start_inp').val();
+                                    datetimepicker = $('#supposed_start_inp').datetimepicker();
+                                    datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                                    $('#supposed_start_inp').val(v);
+                                });
+                            </script>
+                        </div>
+
+                        <div class="md-form mb-0">
+                            <input name="supposed_end" type='text' class="form-control" id='supposed_end_inp' {% if form.supposed_end.value %} value="{{ form.supposed_end.value }}" {% endif %} />
+                            <label for="supposed_end_inp">Supposed end</label>
+                            <script type="text/javascript">
+                                $(function () {
+                                    v = $('#supposed_end_inp').val();
+                                    datetimepicker = $('#supposed_end_inp').datetimepicker();
+                                    datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                                    datetimepicker.data("DateTimePicker").minDate(moment());
+                                    datetimepicker.data("DateTimePicker").date(null);
+                                    $('#supposed_end_inp').val(v);
+                                });
+                            </script>
+                        </div>
+
+                        <div class="md-form mb-0">
+                            <input name="deadline" type='text' class="form-control" id='deadline_inp' {% if form.deadline.value %} value="{{ form.deadline.value }}" {% endif %} />
+                            <label for="deadline_inp">Deadline</label>
+                            <script type="text/javascript">
+                                $(function () {
+                                    v = $('#deadline_inp').val();
+                                    datetimepicker = $('#deadline_inp').datetimepicker();
+                                    datetimepicker.data("DateTimePicker").format("DD.MM.YYYY HH:mm");
+                                    datetimepicker.data("DateTimePicker").minDate(moment());
+                                    datetimepicker.data("DateTimePicker").date(null);
+                                    $('#deadline_inp').val(v);
+                                });
+                            </script>
+                        </div>
+
+                        <div class="md-form mb-0">
+
+                            <fieldset class="form-check">
+                                <input class="form-check-input" name="timeless" type="checkbox" id="radio10" value="true" {% if form.timeless.value %} checked="checked" {% endif %}>
+                                <label class="form-check-label" for="radio10">Timeless</label>
+                            </fieldset>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                
+
+                <button type="submit" class="btn btn-block mt-4 indigo">Search</button>
+            </form>
+
+        </div>
+    </div>
+        
+
+    {% include 'core/task_list.html' with task=task %}
+
+</div>
+
+{% endblock %}

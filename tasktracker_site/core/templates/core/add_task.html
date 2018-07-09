@@ -13,7 +13,7 @@
 
 <link href="{% static 'css/bootstrap-datetimepicker.css' %}" rel="stylesheet">
 
-<script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.9.0/moment-with-locales.js"></script>
+<script src="{% static 'js/moment-with-locales.js' %}"></script>
 
 <script type="text/javascript"
                 src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
@@ -33,6 +33,29 @@
 
             <form method="post" autocomplete="off">
                 {% csrf_token %}         
+
+                {% if parent_task %}
+                <div class="md-form mb-0">
+                    <div class="row mr-0">
+                        <div class="col ml-3">
+                            <label>This task will be added as child of task: {{parent_task.title}}</label>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-flat" name="cancel_parent" value=""><h class="pink-text">Cancel</h></button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if repeat is not None %}
+                <div class="md-form mb-5">
+                    <div class="row mr-0">
+                        <div class="col ml-3">
+                            <label>Repeat number to change: {{repeat}}</label>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <div class="md-form mb-0">
                     <input name="title" type="text" class="form-control" id="title_inp" {% if form.title.value %} value="{{ form.title.value }}" {% endif %}>
@@ -168,6 +191,35 @@
                     </h6>
                 {% endfor %}
                 {% endif %}
+
+                <h6 class="indigo-text ml-3 mt-5">Plan</h6>
+
+                <div class="md-form mb-0">
+                    <div class="row">
+                        <div class="col">
+                            <input name="plan_minute" type='number' class="form-control" id='plan_minute_inp' {% if form.plan_minute.value %} value="{{ form.plan_minute.value }}" {% endif %} />
+                            <label class="ml-3" for="plan_minute_inp">Minutes</label>
+                        </div>
+                        <div class="col">
+                            <input name="plan_hour" type='number' class="form-control" id='plan_hour_inp' {% if form.plan_hour.value %} value="{{ form.plan_hour.value }}" {% endif %} />
+                            <label class="ml-3" for="plan_hour_inp">Hours</label>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col">
+                            <input name="plan_day" type='number' class="form-control" id='plan_day_inp' {% if form.plan_day.value %} value="{{ form.plan_day.value }}" {% endif %} />
+                            <label class="ml-3" for="plan_day_inp">Days</label>
+                        </div>
+                        <div class="col">
+                            <input name="plan_month" type='number' class="form-control" id='plan_month_inp' {% if form.plan_month.value %} value="{{ form.plan_month.value }}" {% endif %} />
+                            <label class="ml-3" for="plan_month_inp">Months</label>
+                        </div>
+                        <div class="col">
+                            <input name="plan_year" type='number' class="form-control" id='plan_year_inp' {% if form.plan_year.value %} value="{{ form.plan_year.value }}" {% endif %} />
+                            <label class="ml-3" for="plan_year_inp">Years</label>
+                        </div>
+                    </div>
+                </div>
 
                 <button type="submit" class="btn btn-block mt-4 indigo">Submit</button>
             </form>

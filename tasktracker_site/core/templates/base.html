@@ -8,8 +8,7 @@
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <title>Task Tracker</title>
     <!-- Font Awesome -->
-    <link rel="stylesheet"
-          href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{% static 'css/font-awesome.min.css' %}">
     <!-- Bootstrap core CSS -->
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
     <!-- Material Design Bootstrap -->
@@ -17,7 +16,7 @@
     <!-- Your custom styles (optional) -->
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="{% static 'css/material-icons.css' %}">
 
     <!-- SCRIPTS -->
     <!-- JQuery -->
@@ -50,16 +49,13 @@
                     <div class="classic-tabs">
                         <ul class="nav tabs-indigo" role="tablist">
                             <li class="nav-item">
-                              <a class="nav-link waves-light" id="home_tab" data-toggle="tab"  href=""role="tab">Home</a>
+                              <a class="nav-link waves-light" id="home_tab" href="{% url 'core:home' %}" role="tab">Home</a>
                             </li>
                             <li class="nav-item">
                               <a class="nav-link waves-light" id="projects_tab" href="{% url 'core:projects_list' %}">Projects</a>
                             </li>
                             <li class="nav-item">
-                              <a class="nav-link waves-light" id="tasks_tab" href="{% url 'core:all_tasks' %}" role="tab">Tasks</a>
-                            </li>
-                            <li class="nav-item">
-                              <a class="nav-link waves-light" id="notifications_tab" data-toggle="tab" href="" role="tab">Notifications</a>
+                              <a class="nav-link waves-light" id="tasks_tab" href="{% url 'core:search' %}" role="tab">Search</a>
                             </li>
                         </ul>
                     </div> 

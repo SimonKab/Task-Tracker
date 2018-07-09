@@ -18,3 +18,8 @@ class HandleLibExceptionMiddleware(MiddlewareMixin):
             message = str(exception)
             messages.error(request, message)
             return RedirectToRefererResponse(request)
+
+        messages.error(request, 'Ooops! Something is going wrong')
+        return RedirectToRefererResponse(request)
+            
+
