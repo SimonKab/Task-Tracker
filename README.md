@@ -2,6 +2,14 @@
 
 Provides functionality of TODO-list and calendar-like apps: it is a list of planned or single tasks, grouped in projects. User can work with timing by different ways: tasks with extended time range, planned tasks with excludes.
 
+<p align="center">
+    <img src="Screenshots/cAohHnks69s.jpg" width="1000" />	
+</p>
+
+<p align="center">
+    <img src="Screenshots/_0ZfQQl_qz4.jpg" width="1000" />	
+</p>
+
 ### Capabilities
 
 1. Managing tasks, planned tasks, users and projects.
